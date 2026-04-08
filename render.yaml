@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: dgvisionstudio-api
+    env: docker
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    healthCheckPath: /api/home
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: Frontend__Url
+        value: https://dgvisionstudio.com
+      - key: Api__Url
+        value: https://api.dgvisionstudio.com
+      - key: ConnectionStrings__DefaultConnection
+        sync: false
+      - key: Resend__ApiKey
+        sync: false
+      - key: Resend__FromEmail
+        value: noreply@dgvisionstudio.com
+      - key: Resend__FromName
+        value: DG Vision Studio
+      - key: Resend__OwnerEmail
+        value: dgvisionstudio@gmail.com
+      - key: Seed__AdminPassword
+        sync: false
+      - key: Seed__PrimaryAdminEmail
+        value: dgvisionstudio@gmail.com
+      - key: Seed__SecondaryAdminEmail
+        value: iliev132607@gmail.com

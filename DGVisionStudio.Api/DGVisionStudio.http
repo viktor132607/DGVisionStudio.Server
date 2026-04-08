@@ -1,0 +1,4 @@
+@DGVisionStudio_HostAddress = http://localhost:5100
+
+GET {{DGVisionStudio_HostAddress}}/api/home
+Accept: application/json
