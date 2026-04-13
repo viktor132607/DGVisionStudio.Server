@@ -9,7 +9,7 @@ namespace DGVisionStudio.Infrastructure.Controllers;
 public class PortfolioController : ControllerBase
 {
     private readonly AppDbContext _context;
-    private const int HomeSlideshowLimit = 5;
+    private const int HomeSlideshowLimit = 10;
 
     public PortfolioController(AppDbContext context)
     {
@@ -112,60 +112,39 @@ public class PortfolioController : ControllerBase
     [HttpGet("home-slideshow")]
     public async Task<IActionResult> GetHomeSlideshow()
     {
-        var items = await _context.PortfolioAlbums
+        var items = await _context.PortfolioImages
             .AsNoTracking()
-            .Include(x => x.PortfolioCategory)
-            .Include(x => x.Images)
+            .Include(x => x.PortfolioAlbum)
+            .ThenInclude(x => x.PortfolioCategory)
             .Where(x =>
                 x.IsPublished &&
-                x.PortfolioCategory != null &&
-                x.PortfolioCategory.IsActive &&
-                x.Images.Any(i => i.IsPublished && (!string.IsNullOrEmpty(i.ThumbnailUrl) || !string.IsNullOrEmpty(i.ImageUrl))))
-            .OrderBy(x => x.DisplayOrder)
-            .ThenByDescending(x => x.CreatedAtUtc)
-            .ThenBy(x => x.Id)
+                x.PortfolioAlbum != null &&
+                x.PortfolioAlbum.IsPublished &&
+                x.PortfolioAlbum.PortfolioCategory != null &&
+                x.PortfolioAlbum.PortfolioCategory.IsActive &&
+                (!string.IsNullOrEmpty(x.ThumbnailUrl) || !string.IsNullOrEmpty(x.ImageUrl)))
+            .OrderBy(x => Guid.NewGuid())
+            .Take(HomeSlideshowLimit)
             .Select(x => new
             {
-                albumId = x.Id,
-                albumTitle = x.Title,
-                categoryName = x.PortfolioCategory != null ? x.PortfolioCategory.Name : null,
-                categoryNameEn = x.PortfolioCategory != null ? x.PortfolioCategory.NameEn : null,
-                cover = x.Images
-                    .Where(i => i.IsPublished && (!string.IsNullOrEmpty(i.ThumbnailUrl) || !string.IsNullOrEmpty(i.ImageUrl)))
-                    .OrderBy(i => i.DisplayOrder)
-                    .ThenBy(i => i.Id)
-                    .Select(i => new
-                    {
-                        i.Id,
-                        i.ImageUrl,
-                        i.ThumbnailUrl,
-                        i.AltText,
-                        i.Caption,
-                        i.DisplayOrder
-                    })
-                    .FirstOrDefault()
+                x.Id,
+                x.ImageUrl,
+                x.ThumbnailUrl,
+                x.AltText,
+                x.Caption,
+                x.DisplayOrder,
+                x.IsPublished,
+                x.PortfolioAlbumId,
+                albumTitle = x.PortfolioAlbum != null ? x.PortfolioAlbum.Title : null,
+                categoryName = x.PortfolioAlbum != null && x.PortfolioAlbum.PortfolioCategory != null
+                    ? x.PortfolioAlbum.PortfolioCategory.Name
+                    : null,
+                categoryNameEn = x.PortfolioAlbum != null && x.PortfolioAlbum.PortfolioCategory != null
+                    ? x.PortfolioAlbum.PortfolioCategory.NameEn
+                    : null
             })
-            .Take(HomeSlideshowLimit)
             .ToListAsync();
 
-        var result = items
-            .Where(x => x.cover != null)
-            .Select(x => new
-            {
-                id = x.cover!.Id,
-                imageUrl = x.cover.ImageUrl,
-                thumbnailUrl = x.cover.ThumbnailUrl,
-                altText = x.cover.AltText,
-                caption = x.cover.Caption,
-                displayOrder = x.cover.DisplayOrder,
-                isPublished = true,
-                portfolioAlbumId = x.albumId,
-                albumTitle = x.albumTitle,
-                categoryName = x.categoryName,
-                categoryNameEn = x.categoryNameEn
-            })
-            .ToList();
-
-        return Ok(result);
+        return Ok(items);
     }
 }
