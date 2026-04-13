@@ -152,8 +152,9 @@ app.UseStaticFiles(new StaticFileOptions
     }
 });
 
-using (var scope = app.Services.CreateScope())
+if (app.Environment.IsDevelopment())
 {
+    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.MigrateAsync();
     await AppDataSeeder.SeedAsync(scope.ServiceProvider);
