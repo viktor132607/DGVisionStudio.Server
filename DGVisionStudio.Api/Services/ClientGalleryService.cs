@@ -45,7 +45,7 @@ public class ClientGalleryService : IClientGalleryService
             TitleEn = x.PortfolioAlbum.TitleEn,
             Description = x.PortfolioAlbum.Description,
             CoverImageUrl = x.PortfolioAlbum.CoverImageUrl,
-            IsActive = x.PortfolioAlbum.AllowClientAccess,
+            IsActive = x.PortfolioAlbum.IsActive,
             IsPublic = x.PortfolioAlbum.PortfolioCategory != null &&
                        x.PortfolioAlbum.PortfolioCategory.Key != "client-galleries",
             IsPublished = x.PortfolioAlbum.IsPublished,
@@ -88,7 +88,7 @@ public class ClientGalleryService : IClientGalleryService
             TitleEn = access.PortfolioAlbum.TitleEn,
             Description = access.PortfolioAlbum.Description,
             CoverImageUrl = access.PortfolioAlbum.CoverImageUrl,
-            IsActive = access.PortfolioAlbum.AllowClientAccess,
+            IsActive = access.PortfolioAlbum.IsActive,
             IsPublic = access.PortfolioAlbum.PortfolioCategoryId > 0,
             IsPublished = access.PortfolioAlbum.IsPublished,
             PortfolioCategoryId = access.PortfolioAlbum.PortfolioCategoryId,
@@ -125,7 +125,7 @@ public class ClientGalleryService : IClientGalleryService
             .AsNoTracking()
             .Include(x => x.PortfolioCategory)
             .Include(x => x.UserAccesses)
-            .Where(x => x.AllowClientAccess)
+            .Where(x => x.AllowClientAccess || x.IsActive)
             .OrderByDescending(x => x.CreatedAtUtc)
             .ThenByDescending(x => x.Id)
             .ToListAsync();
@@ -144,7 +144,7 @@ public class ClientGalleryService : IClientGalleryService
                 TitleEn = x.TitleEn,
                 Description = x.Description,
                 CoverImageUrl = x.CoverImageUrl,
-                IsActive = x.AllowClientAccess,
+                IsActive = x.IsActive,
                 IsPublic = x.PortfolioCategory != null &&
                            x.PortfolioCategory.Key != "client-galleries",
                 IsPublished = x.IsPublished,
@@ -167,7 +167,7 @@ public class ClientGalleryService : IClientGalleryService
             .Include(x => x.Images)
             .Include(x => x.UserAccesses)
                 .ThenInclude(x => x.User)
-            .FirstOrDefaultAsync(x => x.Id == galleryId && x.AllowClientAccess);
+            .FirstOrDefaultAsync(x => x.Id == galleryId && (x.AllowClientAccess || x.IsActive));
 
         if (album == null)
             return null;
@@ -196,7 +196,7 @@ public class ClientGalleryService : IClientGalleryService
             TitleEn = album.TitleEn,
             Description = album.Description,
             CoverImageUrl = album.CoverImageUrl,
-            IsActive = album.AllowClientAccess,
+            IsActive = album.IsActive,
             IsPublic = album.PortfolioCategoryId > 0,
             IsPublished = album.IsPublished,
             PortfolioCategoryId = album.PortfolioCategoryId,
@@ -249,7 +249,8 @@ public class ClientGalleryService : IClientGalleryService
             CoverImageUrl = string.IsNullOrWhiteSpace(request.CoverImageUrl) ? null : request.CoverImageUrl.Trim(),
             DisplayOrder = maxDisplayOrder + 1,
             IsPublished = request.IsPublic && request.IsPublished,
-            AllowClientAccess = request.IsActive,
+            IsActive = request.IsActive,
+            AllowClientAccess = !request.IsPublic,
             CreatedAtUtc = DateTime.UtcNow
         };
 
@@ -283,7 +284,8 @@ public class ClientGalleryService : IClientGalleryService
         album.TitleEn = titleEn;
         album.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
         album.CoverImageUrl = string.IsNullOrWhiteSpace(request.CoverImageUrl) ? null : request.CoverImageUrl.Trim();
-        album.AllowClientAccess = request.IsActive;
+        album.IsActive = request.IsActive;
+        album.AllowClientAccess = !request.IsPublic;
         album.IsPublished = request.IsPublic && request.IsPublished;
         album.PortfolioCategoryId = request.IsPublic
             ? request.PortfolioCategoryId ?? album.PortfolioCategoryId

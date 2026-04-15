@@ -32,9 +32,11 @@ public class PortfolioController : ControllerBase
     public async Task<IActionResult> GetAlbums([FromQuery] int? categoryId = null)
     {
         var query = _context.PortfolioAlbums
+            .AsNoTracking()
             .Include(x => x.PortfolioCategory)
             .Where(x =>
                 x.IsPublished &&
+                x.IsActive &&
                 x.PortfolioCategory != null &&
                 x.PortfolioCategory.IsActive)
             .AsQueryable();
@@ -46,6 +48,24 @@ public class PortfolioController : ControllerBase
             .OrderBy(x => x.DisplayOrder)
             .ThenByDescending(x => x.CreatedAtUtc)
             .ThenBy(x => x.Id)
+            .Select(x => new
+            {
+                x.Id,
+                x.PortfolioCategoryId,
+                categoryName = x.PortfolioCategory != null ? x.PortfolioCategory.Name : null,
+                categoryNameEn = x.PortfolioCategory != null ? x.PortfolioCategory.NameEn : null,
+                x.Slug,
+                x.Title,
+                x.TitleEn,
+                x.Description,
+                x.CoverImageUrl,
+                x.DisplayOrder,
+                x.ColumnNumber,
+                x.IsPublished,
+                x.IsActive,
+                x.AllowClientAccess,
+                x.CreatedAtUtc
+            })
             .ToListAsync();
 
         return Ok(items);
@@ -55,27 +75,71 @@ public class PortfolioController : ControllerBase
     public async Task<IActionResult> GetAlbum(string slug)
     {
         var album = await _context.PortfolioAlbums
+            .AsNoTracking()
             .Include(x => x.PortfolioCategory)
             .Include(x => x.Images.Where(i => i.IsPublished).OrderBy(i => i.DisplayOrder))
             .FirstOrDefaultAsync(x =>
                 x.Slug == slug &&
                 x.IsPublished &&
+                x.IsActive &&
                 x.PortfolioCategory != null &&
                 x.PortfolioCategory.IsActive);
 
-        return album is null ? NotFound() : Ok(album);
+        if (album is null)
+            return NotFound();
+
+        return Ok(new
+        {
+            album.Id,
+            album.PortfolioCategoryId,
+            categoryName = album.PortfolioCategory != null ? album.PortfolioCategory.Name : null,
+            categoryNameEn = album.PortfolioCategory != null ? album.PortfolioCategory.NameEn : null,
+            album.Slug,
+            album.Title,
+            album.TitleEn,
+            album.Description,
+            album.CoverImageUrl,
+            album.DisplayOrder,
+            album.ColumnNumber,
+            album.IsPublished,
+            album.IsActive,
+            album.AllowClientAccess,
+            album.CreatedAtUtc,
+            Images = album.Images
+                .Where(i => i.IsPublished)
+                .OrderBy(i => i.DisplayOrder)
+                .ThenBy(i => i.Id)
+                .Select(i => new
+                {
+                    i.Id,
+                    i.PortfolioAlbumId,
+                    i.ImageUrl,
+                    i.ThumbnailUrl,
+                    i.AltText,
+                    i.Caption,
+                    i.Width,
+                    i.Height,
+                    i.DisplayOrder,
+                    i.IsCover,
+                    i.IsPublished,
+                    i.CreatedAtUtc
+                })
+                .ToList()
+        });
     }
 
     [HttpGet("images")]
     public async Task<IActionResult> GetImages([FromQuery] int? albumId = null)
     {
         var query = _context.PortfolioImages
+            .AsNoTracking()
             .Include(x => x.PortfolioAlbum)
             .ThenInclude(x => x.PortfolioCategory)
             .Where(x =>
                 x.IsPublished &&
                 x.PortfolioAlbum != null &&
                 x.PortfolioAlbum.IsPublished &&
+                x.PortfolioAlbum.IsActive &&
                 x.PortfolioAlbum.PortfolioCategory != null &&
                 x.PortfolioAlbum.PortfolioCategory.IsActive)
             .AsQueryable();
@@ -97,6 +161,7 @@ public class PortfolioController : ControllerBase
                 x.IsPublished,
                 x.PortfolioAlbumId,
                 albumTitle = x.PortfolioAlbum != null ? x.PortfolioAlbum.Title : null,
+                albumIsActive = x.PortfolioAlbum != null ? x.PortfolioAlbum.IsActive : false,
                 categoryName = x.PortfolioAlbum != null && x.PortfolioAlbum.PortfolioCategory != null
                     ? x.PortfolioAlbum.PortfolioCategory.Name
                     : null,
@@ -120,6 +185,7 @@ public class PortfolioController : ControllerBase
                 x.IsPublished &&
                 x.PortfolioAlbum != null &&
                 x.PortfolioAlbum.IsPublished &&
+                x.PortfolioAlbum.IsActive &&
                 x.PortfolioAlbum.PortfolioCategory != null &&
                 x.PortfolioAlbum.PortfolioCategory.IsActive &&
                 (!string.IsNullOrEmpty(x.ThumbnailUrl) || !string.IsNullOrEmpty(x.ImageUrl)))
@@ -136,6 +202,7 @@ public class PortfolioController : ControllerBase
                 x.IsPublished,
                 x.PortfolioAlbumId,
                 albumTitle = x.PortfolioAlbum != null ? x.PortfolioAlbum.Title : null,
+                albumIsActive = x.PortfolioAlbum != null ? x.PortfolioAlbum.IsActive : false,
                 categoryName = x.PortfolioAlbum != null && x.PortfolioAlbum.PortfolioCategory != null
                     ? x.PortfolioAlbum.PortfolioCategory.Name
                     : null,
