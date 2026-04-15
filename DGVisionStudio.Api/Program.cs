@@ -41,8 +41,6 @@ builder.Services
         options.Password.RequiredLength = 8;
         options.User.RequireUniqueEmail = true;
 
-        // Confirm email временно е изключено.
-        // options.SignIn.RequireConfirmedEmail = true;
         options.SignIn.RequireConfirmedEmail = false;
     })
     .AddEntityFrameworkStores<AppDbContext>()
@@ -152,12 +150,15 @@ app.UseStaticFiles(new StaticFileOptions
     }
 });
 
-if (app.Environment.IsDevelopment())
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.MigrateAsync();
-    await AppDataSeeder.SeedAsync(scope.ServiceProvider);
+
+    if (app.Environment.IsDevelopment())
+    {
+        await AppDataSeeder.SeedAsync(scope.ServiceProvider);
+    }
 }
 
 if (app.Environment.IsDevelopment())
