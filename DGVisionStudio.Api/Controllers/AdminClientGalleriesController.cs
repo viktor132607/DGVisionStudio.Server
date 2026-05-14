@@ -1,10 +1,13 @@
 ﻿using System.Security.Claims;
 using DGVisionStudio.Application.DTOs.ClientGalleries;
 using DGVisionStudio.Application.Interfaces;
+using DGVisionStudio.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace DGVisionStudio.Infrastructure.Controllers;
@@ -16,15 +19,18 @@ public class AdminClientGalleriesController : ControllerBase
 {
 	private readonly IClientGalleryService _clientGalleryService;
 	private readonly IAuditLogService _auditLogService;
+	private readonly UserManager<ApplicationUser> _userManager;
 	private readonly ILogger<AdminClientGalleriesController> _logger;
 
 	public AdminClientGalleriesController(
 		IClientGalleryService clientGalleryService,
 		IAuditLogService auditLogService,
+		UserManager<ApplicationUser> userManager,
 		ILogger<AdminClientGalleriesController> logger)
 	{
 		_clientGalleryService = clientGalleryService;
 		_auditLogService = auditLogService;
+		_userManager = userManager;
 		_logger = logger;
 	}
 
@@ -33,6 +39,22 @@ public class AdminClientGalleriesController : ControllerBase
 	{
 		var galleries = await _clientGalleryService.GetAllGalleriesAsync();
 		return Ok(galleries);
+	}
+
+	[HttpGet("users")]
+	public async Task<IActionResult> GetAvailableUsers()
+	{
+		var users = await _userManager.Users
+			.AsNoTracking()
+			.OrderBy(x => x.Email)
+			.Select(x => new
+			{
+				id = x.Id,
+				email = x.Email ?? x.UserName ?? string.Empty
+			})
+			.ToListAsync();
+
+		return Ok(users);
 	}
 
 	[HttpGet("{galleryId:int}")]
