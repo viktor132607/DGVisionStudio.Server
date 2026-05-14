@@ -15,6 +15,11 @@ public interface IClientGalleryService
 	Task<bool> UpdateGalleryAsync(int galleryId, AdminUpdateClientGalleryRequest request);
 	Task<bool> DeleteGalleryAsync(int galleryId);
 
+	Task<int?> CreateUserGalleryAsync(string userId, CreateUserClientGalleryRequest request);
+	Task<ClientPhotoDto?> UploadUserGalleryPhotoAsync(int galleryId, string userId, IFormFile file);
+	Task<bool> UserCanAccessGalleryAsync(int galleryId, string userId, bool requireDownload);
+	Task<(Stream Stream, string ContentType, string FileName)?> OpenPhotoDownloadAsync(int galleryId, int photoId, string userId, bool isAdmin);
+
 	Task<List<GalleryUserAccessDto>> GetGalleryAccessesAsync(int galleryId);
 	Task<bool> GrantAccessAsync(int galleryId, GrantGalleryAccessRequest request);
 	Task<bool> UpdateAccessAsync(int galleryId, string userId, UpdateGalleryAccessRequest request);
@@ -25,4 +30,7 @@ public interface IClientGalleryService
 	Task<bool> DeletePhotoAsync(int galleryId, int photoId);
 	Task<bool> SetCoverImageAsync(int galleryId, string coverImageUrl);
 	Task<bool> ReorderPhotosAsync(int galleryId, List<int> orderedPhotoIds);
+
+	Task<int> MarkExpiredUserGalleriesAsync(CancellationToken cancellationToken = default);
+	Task<int> DeleteExpiredUserGalleriesAsync(CancellationToken cancellationToken = default);
 }

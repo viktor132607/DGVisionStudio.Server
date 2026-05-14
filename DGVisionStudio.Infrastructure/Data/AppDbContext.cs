@@ -19,6 +19,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 	public DbSet<PortfolioImage> PortfolioImages => Set<PortfolioImage>();
 	public DbSet<SiteSetting> SiteSettings => Set<SiteSetting>();
 	public DbSet<UserAlbumAccess> UserAlbumAccesses => Set<UserAlbumAccess>();
+	public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
 	protected override void OnModelCreating(ModelBuilder builder)
 	{
@@ -82,9 +83,15 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 			entity.Property(x => x.Name).IsRequired().HasMaxLength(120);
 			entity.Property(x => x.NameEn).IsRequired().HasMaxLength(120);
 			entity.Property(x => x.Description).HasMaxLength(1000);
+			entity.Property(x => x.IsDeleted).HasDefaultValue(false);
+
+			entity.HasQueryFilter(x => !x.IsDeleted);
+
 			entity.HasIndex(x => x.Key).IsUnique();
 			entity.HasIndex(x => x.DisplayOrder);
 			entity.HasIndex(x => x.IsActive);
+			entity.HasIndex(x => x.IsDeleted);
+			entity.HasIndex(x => x.DeletedAtUtc);
 		});
 
 		builder.Entity<PortfolioAlbum>(entity =>
@@ -97,15 +104,34 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 			entity.Property(x => x.CoverImageUrl).HasMaxLength(1000);
 			entity.Property(x => x.AllowClientAccess).HasDefaultValue(true);
 			entity.Property(x => x.IsPublished).HasDefaultValue(true);
+			entity.Property(x => x.IsUserUploaded).HasDefaultValue(false);
+			entity.Property(x => x.OwnerUserId).HasMaxLength(450);
+			entity.Property(x => x.UserGalleryStatus).HasConversion<int>();
+			entity.Property(x => x.IsDeleted).HasDefaultValue(false);
+
+			entity.HasQueryFilter(x => !x.IsDeleted);
+
 			entity.HasIndex(x => x.Slug).IsUnique();
 			entity.HasIndex(x => x.PortfolioCategoryId);
 			entity.HasIndex(x => x.DisplayOrder);
 			entity.HasIndex(x => x.IsPublished);
 			entity.HasIndex(x => x.AllowClientAccess);
+			entity.HasIndex(x => x.IsUserUploaded);
+			entity.HasIndex(x => x.OwnerUserId);
+			entity.HasIndex(x => x.ExpiresAtUtc);
+			entity.HasIndex(x => x.UserGalleryStatus);
+			entity.HasIndex(x => x.IsDeleted);
+			entity.HasIndex(x => x.DeletedAtUtc);
+
 			entity.HasOne(x => x.PortfolioCategory)
 				.WithMany(x => x.Albums)
 				.HasForeignKey(x => x.PortfolioCategoryId)
 				.OnDelete(DeleteBehavior.Restrict);
+
+			entity.HasOne(x => x.OwnerUser)
+				.WithMany()
+				.HasForeignKey(x => x.OwnerUserId)
+				.OnDelete(DeleteBehavior.SetNull);
 		});
 
 		builder.Entity<PortfolioImage>(entity =>
@@ -115,10 +141,17 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 			entity.Property(x => x.ThumbnailUrl).HasMaxLength(1000);
 			entity.Property(x => x.AltText).HasMaxLength(300);
 			entity.Property(x => x.Caption).HasMaxLength(1000);
+			entity.Property(x => x.IsDeleted).HasDefaultValue(false);
+
+			entity.HasQueryFilter(x => !x.IsDeleted);
+
 			entity.HasIndex(x => x.PortfolioAlbumId);
 			entity.HasIndex(x => x.DisplayOrder);
 			entity.HasIndex(x => x.IsPublished);
 			entity.HasIndex(x => x.IsCover);
+			entity.HasIndex(x => x.IsDeleted);
+			entity.HasIndex(x => x.DeletedAtUtc);
+
 			entity.HasOne(x => x.PortfolioAlbum)
 				.WithMany(x => x.Images)
 				.HasForeignKey(x => x.PortfolioAlbumId)
@@ -154,6 +187,30 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 				.WithMany()
 				.HasForeignKey(x => x.UserId)
 				.OnDelete(DeleteBehavior.Cascade);
+		});
+
+		builder.Entity<AuditLog>(entity =>
+		{
+			entity.HasKey(x => x.Id);
+
+			entity.Property(x => x.AdminUserId).IsRequired().HasMaxLength(450);
+			entity.Property(x => x.AdminEmail).IsRequired().HasMaxLength(150);
+			entity.Property(x => x.Action).IsRequired().HasMaxLength(120);
+			entity.Property(x => x.EntityType).IsRequired().HasMaxLength(120);
+			entity.Property(x => x.EntityId).HasMaxLength(120);
+			entity.Property(x => x.OldValue).HasColumnType("text");
+			entity.Property(x => x.NewValue).HasColumnType("text");
+			entity.Property(x => x.IpAddress).HasMaxLength(100);
+			entity.Property(x => x.UserAgent).HasMaxLength(1000);
+			entity.Property(x => x.TraceId).HasMaxLength(200);
+
+			entity.HasIndex(x => x.CreatedAtUtc);
+			entity.HasIndex(x => x.AdminUserId);
+			entity.HasIndex(x => x.AdminEmail);
+			entity.HasIndex(x => x.Action);
+			entity.HasIndex(x => x.EntityType);
+			entity.HasIndex(x => x.EntityId);
+			entity.HasIndex(x => new { x.EntityType, x.EntityId });
 		});
 	}
 }

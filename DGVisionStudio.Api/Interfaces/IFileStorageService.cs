@@ -8,6 +8,14 @@ public interface IFileStorageService
 		string folderPath,
 		CancellationToken cancellationToken = default);
 
+	Task<string> SaveImageAsync(
+		Stream fileStream,
+		string fileName,
+		string folderPath,
+		int maxWidth = 2400,
+		int quality = 82,
+		CancellationToken cancellationToken = default);
+
 	Task DeleteFileAsync(
 		string relativePath,
 		CancellationToken cancellationToken = default);

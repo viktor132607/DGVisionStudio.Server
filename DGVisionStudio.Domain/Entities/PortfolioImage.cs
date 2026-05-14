@@ -15,4 +15,7 @@ public class PortfolioImage
 	public bool IsCover { get; set; }
 	public bool IsPublished { get; set; } = true;
 	public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+
+	public bool IsDeleted { get; set; } = false;
+	public DateTime? DeletedAtUtc { get; set; }
 }

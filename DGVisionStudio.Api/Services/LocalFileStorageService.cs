@@ -33,13 +33,26 @@ public class LocalFileStorageService : IFileStorageService
 		var safeFileName = $"{Guid.NewGuid():N}{safeExtension}";
 		var fullPath = Path.Combine(targetDirectory, safeFileName);
 
-		await using var output = new FileStream(fullPath, FileMode.Create, FileAccess.Write, FileShare.None);
+		await using var output = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
 		await fileStream.CopyToAsync(output, cancellationToken);
 
 		return "/" + Path.Combine(safeFolderPath, safeFileName).Replace('\\', '/');
 	}
 
-	public Task DeleteFileAsync(string relativePath, CancellationToken cancellationToken = default)
+	public Task<string> SaveImageAsync(
+		Stream fileStream,
+		string fileName,
+		string folderPath,
+		int maxWidth = 2400,
+		int quality = 82,
+		CancellationToken cancellationToken = default)
+	{
+		return SaveFileAsync(fileStream, fileName, folderPath, cancellationToken);
+	}
+
+	public Task DeleteFileAsync(
+		string relativePath,
+		CancellationToken cancellationToken = default)
 	{
 		if (string.IsNullOrWhiteSpace(relativePath))
 			return Task.CompletedTask;
@@ -54,7 +67,9 @@ public class LocalFileStorageService : IFileStorageService
 		return Task.CompletedTask;
 	}
 
-	public Task<Stream?> OpenReadAsync(string relativePath, CancellationToken cancellationToken = default)
+	public Task<Stream?> OpenReadAsync(
+		string relativePath,
+		CancellationToken cancellationToken = default)
 	{
 		if (string.IsNullOrWhiteSpace(relativePath))
 			return Task.FromResult<Stream?>(null);
@@ -68,7 +83,9 @@ public class LocalFileStorageService : IFileStorageService
 		return Task.FromResult<Stream?>(stream);
 	}
 
-	public Task<bool> FileExistsAsync(string relativePath, CancellationToken cancellationToken = default)
+	public Task<bool> FileExistsAsync(
+		string relativePath,
+		CancellationToken cancellationToken = default)
 	{
 		if (string.IsNullOrWhiteSpace(relativePath))
 			return Task.FromResult(false);

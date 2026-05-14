@@ -1,4 +1,5 @@
-﻿using DGVisionStudio.Application.Interfaces;
+﻿using DGVisionStudio.Application.DTOs.ClientGalleries;
+using DGVisionStudio.Application.Interfaces;
 using DGVisionStudio.Domain.Entities;
 using DGVisionStudio.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
@@ -42,6 +43,27 @@ public class ClientGalleriesController : ControllerBase
 		return Ok(galleries);
 	}
 
+	[HttpPost("my")]
+	public async Task<IActionResult> CreateMyGallery([FromBody] CreateUserClientGalleryRequest request)
+	{
+		var user = await _userManager.GetUserAsync(User);
+		if (user == null)
+			return Unauthorized(new { message = "User not authenticated." });
+
+		if (string.IsNullOrWhiteSpace(request.Title))
+			return BadRequest(new { message = "Title is required." });
+
+		var galleryId = await _clientGalleryService.CreateUserGalleryAsync(user.Id, request);
+		if (galleryId == null)
+			return BadRequest(new { message = "You can have up to 10 active galleries. Each gallery expires after 7 days." });
+
+		return Ok(new
+		{
+			message = "Gallery created successfully.",
+			id = galleryId.Value
+		});
+	}
+
 	[HttpGet("{galleryId:int}")]
 	public async Task<IActionResult> GetGalleryDetails([FromRoute] int galleryId)
 	{
@@ -56,6 +78,25 @@ public class ClientGalleriesController : ControllerBase
 		return Ok(gallery);
 	}
 
+	[HttpPost("{galleryId:int}/photos/upload")]
+	public async Task<IActionResult> UploadMyGalleryPhoto(
+		[FromRoute] int galleryId,
+		[FromForm] IFormFile file)
+	{
+		var user = await _userManager.GetUserAsync(User);
+		if (user == null)
+			return Unauthorized(new { message = "User not authenticated." });
+
+		if (file == null || file.Length == 0)
+			return BadRequest(new { message = "File is required." });
+
+		var photo = await _clientGalleryService.UploadUserGalleryPhotoAsync(galleryId, user.Id, file);
+		if (photo == null)
+			return BadRequest(new { message = "Gallery not found, expired, or access denied." });
+
+		return Ok(photo);
+	}
+
 	[HttpGet("{galleryId:int}/photos/{photoId:int}/download")]
 	public async Task<IActionResult> DownloadPhoto([FromRoute] int galleryId, [FromRoute] int photoId)
 	{
@@ -63,31 +104,18 @@ public class ClientGalleriesController : ControllerBase
 		if (user == null)
 			return Unauthorized(new { message = "User not authenticated." });
 
-		var hasAccess = await _dbContext.UserAlbumAccesses
-			.AsNoTracking()
-			.AnyAsync(x =>
-				x.PortfolioAlbumId == galleryId &&
-				x.UserId == user.Id &&
-				x.DownloadEnabled &&
-				(!x.DownloadExpiresAtUtc.HasValue || x.DownloadExpiresAtUtc.Value >= DateTime.UtcNow));
+		var isAdmin = User.IsInRole("Admin");
 
-		if (!hasAccess)
-			return Forbid();
+		var result = await _clientGalleryService.OpenPhotoDownloadAsync(
+			galleryId,
+			photoId,
+			user.Id,
+			isAdmin);
 
-		var photo = await _dbContext.PortfolioImages
-			.AsNoTracking()
-			.FirstOrDefaultAsync(x => x.Id == photoId && x.PortfolioAlbumId == galleryId && x.IsPublished);
+		if (result == null)
+			return NotFound(new { message = "Photo not found or access denied." });
 
-		if (photo == null || string.IsNullOrWhiteSpace(photo.ImageUrl))
-			return NotFound();
-
-		var stream = await _fileStorageService.OpenReadAsync(photo.ImageUrl);
-		if (stream == null)
-			return NotFound();
-
-		var extension = Path.GetExtension(photo.ImageUrl);
-		var fileName = $"photo-{photo.Id}{extension}";
-		return File(stream, "application/octet-stream", fileName);
+		return File(result.Value.Stream, result.Value.ContentType, result.Value.FileName);
 	}
 
 	[HttpGet("{galleryId:int}/download")]
@@ -97,15 +125,12 @@ public class ClientGalleriesController : ControllerBase
 		if (user == null)
 			return Unauthorized(new { message = "User not authenticated." });
 
-		var hasAccess = await _dbContext.UserAlbumAccesses
-			.AsNoTracking()
-			.AnyAsync(x =>
-				x.PortfolioAlbumId == galleryId &&
-				x.UserId == user.Id &&
-				x.DownloadEnabled &&
-				(!x.DownloadExpiresAtUtc.HasValue || x.DownloadExpiresAtUtc.Value >= DateTime.UtcNow));
+		var isAdmin = User.IsInRole("Admin");
 
-		if (!hasAccess)
+		var canDownload = isAdmin ||
+			await _clientGalleryService.UserCanAccessGalleryAsync(galleryId, user.Id, requireDownload: true);
+
+		if (!canDownload)
 			return Forbid();
 
 		var album = await _dbContext.PortfolioAlbums
@@ -147,6 +172,7 @@ public class ClientGalleriesController : ControllerBase
 		}
 
 		memory.Position = 0;
+
 		var safeName = string.Join("-", album.Title.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Trim();
 		if (string.IsNullOrWhiteSpace(safeName))
 			safeName = $"gallery-{galleryId}";

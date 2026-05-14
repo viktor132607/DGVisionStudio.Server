@@ -3,6 +3,7 @@ using System;
 using DGVisionStudio.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DGVisionStudio.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260502194851_AddAuditLogs")]
+    partial class AddAuditLogs
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -89,78 +92,6 @@ namespace DGVisionStudio.Infrastructure.Migrations
                         .HasDatabaseName("UserNameIndex");
 
                     b.ToTable("AspNetUsers", (string)null);
-                });
-
-            modelBuilder.Entity("DGVisionStudio.Domain.Entities.AuditLog", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Action")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
-
-                    b.Property<string>("AdminEmail")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
-
-                    b.Property<string>("AdminUserId")
-                        .IsRequired()
-                        .HasMaxLength(450)
-                        .HasColumnType("character varying(450)");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("EntityId")
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
-
-                    b.Property<string>("EntityType")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
-
-                    b.Property<string>("IpAddress")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("NewValue")
-                        .HasColumnType("text");
-
-                    b.Property<string>("OldValue")
-                        .HasColumnType("text");
-
-                    b.Property<string>("TraceId")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("UserAgent")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Action");
-
-                    b.HasIndex("AdminEmail");
-
-                    b.HasIndex("AdminUserId");
-
-                    b.HasIndex("CreatedAtUtc");
-
-                    b.HasIndex("EntityId");
-
-                    b.HasIndex("EntityType");
-
-                    b.HasIndex("EntityType", "EntityId");
-
-                    b.ToTable("AuditLogs");
                 });
 
             modelBuilder.Entity("DGVisionStudio.Domain.Entities.ContactRequest", b =>
@@ -282,9 +213,6 @@ namespace DGVisionStudio.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("DeletedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("Description")
                         .HasMaxLength(1500)
                         .HasColumnType("character varying(1500)");
@@ -294,11 +222,6 @@ namespace DGVisionStudio.Infrastructure.Migrations
 
                     b.Property<DateTime?>("ExpiresAtUtc")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false);
 
                     b.Property<bool>("IsPublished")
                         .ValueGeneratedOnAdd()
@@ -338,13 +261,9 @@ namespace DGVisionStudio.Infrastructure.Migrations
 
                     b.HasIndex("AllowClientAccess");
 
-                    b.HasIndex("DeletedAtUtc");
-
                     b.HasIndex("DisplayOrder");
 
                     b.HasIndex("ExpiresAtUtc");
-
-                    b.HasIndex("IsDeleted");
 
                     b.HasIndex("IsPublished");
 
@@ -370,9 +289,6 @@ namespace DGVisionStudio.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime?>("DeletedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("Description")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
@@ -382,11 +298,6 @@ namespace DGVisionStudio.Infrastructure.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
-
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false);
 
                     b.Property<string>("Key")
                         .IsRequired()
@@ -405,13 +316,9 @@ namespace DGVisionStudio.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DeletedAtUtc");
-
                     b.HasIndex("DisplayOrder");
 
                     b.HasIndex("IsActive");
-
-                    b.HasIndex("IsDeleted");
 
                     b.HasIndex("Key")
                         .IsUnique();
@@ -438,9 +345,6 @@ namespace DGVisionStudio.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("DeletedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("integer");
 
@@ -454,11 +358,6 @@ namespace DGVisionStudio.Infrastructure.Migrations
 
                     b.Property<bool>("IsCover")
                         .HasColumnType("boolean");
-
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false);
 
                     b.Property<bool>("IsPublished")
                         .HasColumnType("boolean");
@@ -475,13 +374,9 @@ namespace DGVisionStudio.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DeletedAtUtc");
-
                     b.HasIndex("DisplayOrder");
 
                     b.HasIndex("IsCover");
-
-                    b.HasIndex("IsDeleted");
 
                     b.HasIndex("IsPublished");
 

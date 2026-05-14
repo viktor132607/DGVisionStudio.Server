@@ -1,13 +1,31 @@
+using DGVisionStudio.Api.Middleware;
 using DGVisionStudio.Application.Interfaces;
 using DGVisionStudio.Domain.Entities;
 using DGVisionStudio.Infrastructure.Data;
 using DGVisionStudio.Infrastructure.Services;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
+
+Log.Logger = new LoggerConfiguration()
+	.ReadFrom.Configuration(builder.Configuration)
+	.Enrich.FromLogContext()
+	.Enrich.WithProperty("Application", "DGVisionStudio.Api")
+	.WriteTo.Console()
+	.WriteTo.File(
+		path: "logs/dgvisionstudio-.log",
+		rollingInterval: RollingInterval.Day,
+		retainedFileCountLimit: 14,
+		shared: true)
+	.CreateLogger();
+
+builder.Host.UseSerilog();
 
 var port = Environment.GetEnvironmentVariable("PORT") ?? "10000";
 builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
@@ -24,6 +42,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 builder.Services.AddScoped<IClientGalleryService, ClientGalleryService>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddHostedService<ExpiredGalleryCleanupService>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -39,9 +58,11 @@ builder.Services
 		options.Password.RequiredLength = 8;
 		options.User.RequireUniqueEmail = true;
 
-		// Confirm email временно е изключено.
-		// options.SignIn.RequireConfirmedEmail = true;
 		options.SignIn.RequireConfirmedEmail = false;
+
+		options.Lockout.AllowedForNewUsers = true;
+		options.Lockout.MaxFailedAccessAttempts = 5;
+		options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
 	})
 	.AddEntityFrameworkStores<AppDbContext>()
 	.AddDefaultTokenProviders();
@@ -89,6 +110,35 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 	options.KnownProxies.Clear();
 });
 
+builder.Services.AddRateLimiter(options =>
+{
+	options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+	options.AddFixedWindowLimiter("auth", limiter =>
+	{
+		limiter.PermitLimit = 5;
+		limiter.Window = TimeSpan.FromMinutes(1);
+		limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+		limiter.QueueLimit = 0;
+	});
+
+	options.AddFixedWindowLimiter("contact", limiter =>
+	{
+		limiter.PermitLimit = 3;
+		limiter.Window = TimeSpan.FromMinutes(5);
+		limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+		limiter.QueueLimit = 0;
+	});
+
+	options.AddFixedWindowLimiter("upload", limiter =>
+	{
+		limiter.PermitLimit = 20;
+		limiter.Window = TimeSpan.FromMinutes(10);
+		limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+		limiter.QueueLimit = 0;
+	});
+});
+
 var frontendUrl = builder.Configuration["Frontend:Url"]?.TrimEnd('/');
 var allowedOrigins = new List<string>
 {
@@ -117,7 +167,12 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+app.UseSerilogRequestLogging();
+
 app.UseForwardedHeaders();
+
+app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
+app.UseMiddleware<SecurityHeadersMiddleware>();
 
 if (!app.Environment.IsDevelopment())
 {
@@ -134,13 +189,13 @@ Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "portfolio"));
 Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "client-galleries"));
 Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "client-galleries", "previews"));
 Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "client-galleries", "originals"));
+Directory.CreateDirectory(Path.Combine(app.Environment.ContentRootPath, "logs"));
 
 app.UseStaticFiles();
 
-using (var scope = app.Services.CreateScope())
+if (app.Environment.IsDevelopment())
 {
-	var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-	await db.Database.MigrateAsync();
+	using var scope = app.Services.CreateScope();
 	await AppDataSeeder.SeedAsync(scope.ServiceProvider);
 }
 
@@ -151,6 +206,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowFrontend");
+
+app.UseRateLimiter();
+
+app.UseMiddleware<CsrfProtectionMiddleware>();
+
 app.UseAuthentication();
 app.UseAuthorization();
 

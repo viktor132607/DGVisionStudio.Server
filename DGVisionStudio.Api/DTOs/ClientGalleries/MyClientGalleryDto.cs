@@ -1,4 +1,6 @@
-﻿namespace DGVisionStudio.Application.DTOs.ClientGalleries;
+﻿using DGVisionStudio.Domain.Enums;
+
+namespace DGVisionStudio.Application.DTOs.ClientGalleries;
 
 public class MyClientGalleryDto
 {
@@ -33,4 +35,16 @@ public class MyClientGalleryDto
 	public int? RemainingDownloadDays { get; set; }
 
 	public bool IsExpired { get; set; }
+
+	public bool IsUserUploaded { get; set; }
+
+	public string? OwnerUserId { get; set; }
+
+	public string? OwnerEmail { get; set; }
+
+	public DateTime? ExpiresAtUtc { get; set; }
+
+	public int? RemainingLifetimeDays { get; set; }
+
+	public UserClientGalleryStatus UserGalleryStatus { get; set; }
 }

@@ -4,6 +4,7 @@ using DGVisionStudio.Application.Interfaces;
 using DGVisionStudio.Domain.Entities;
 using DGVisionStudio.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace DGVisionStudio.Infrastructure.Controllers;
 
@@ -22,6 +23,7 @@ public class ContactRequestsController : ControllerBase
 		_configuration = configuration;
 	}
 
+	[EnableRateLimiting("contact")]
 	[HttpPost]
 	public async Task<IActionResult> Create([FromBody] CreateContactRequestDto dto)
 	{

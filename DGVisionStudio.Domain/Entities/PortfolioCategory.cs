@@ -9,5 +9,8 @@ public class PortfolioCategory
 	public string? Description { get; set; }
 	public int DisplayOrder { get; set; }
 	public bool IsActive { get; set; } = true;
+	public bool IsDeleted { get; set; } = false;
+	public DateTime? DeletedAtUtc { get; set; }
+
 	public ICollection<PortfolioAlbum> Albums { get; set; } = new List<PortfolioAlbum>();
 }

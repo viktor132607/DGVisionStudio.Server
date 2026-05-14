@@ -1,3 +1,4 @@
+using DGVisionStudio.Application.DTOs.Pagination;
 using DGVisionStudio.Domain.Entities;
 using DGVisionStudio.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
@@ -34,42 +35,62 @@ public class AdminUsersController : ControllerBase
 	}
 
 	[HttpGet]
-	public async Task<IActionResult> GetUsers()
+	public async Task<IActionResult> GetUsers([FromQuery] PagedQueryDto query)
 	{
-		var users = _userManager.Users.ToList();
-		var result = new List<object>(users.Count);
+		var page = query.Page;
+		var pageSize = query.PageSize;
 
-		foreach (var user in users.OrderByDescending(x => x.Email))
+		var source = _userManager.Users
+			.AsNoTracking()
+			.OrderByDescending(x => x.Email);
+
+		var total = await source.CountAsync();
+
+		var users = await source
+			.Skip((page - 1) * pageSize)
+			.Take(pageSize)
+			.ToListAsync();
+
+		var items = new List<object>(users.Count);
+
+		foreach (var user in users)
 		{
 			var roles = await _userManager.GetRolesAsync(user);
 
-			result.Add(new
+			items.Add(new
 			{
 				user.Id,
 				user.Email,
 				user.IsBlocked,
-
-				// Confirm email логиката е временно спряна,
-				// но полето още го връщаме за съвместимост.
 				user.EmailConfirmed,
-
 				Roles = roles,
 				IsProtectedAdmin = _protectedAdmins.Contains(user.Email?.ToLowerInvariant() ?? string.Empty)
 			});
 		}
 
-		return Ok(result);
+		return Ok(new PagedResultDto<object>
+		{
+			Page = page,
+			PageSize = pageSize,
+			Total = total,
+			Items = items
+		});
 	}
 
 	[HttpGet("{id}/albums")]
 	public async Task<IActionResult> GetUserAlbums(string id)
 	{
-		var user = await _userManager.FindByIdAsync(id);
-		if (user == null) return NotFound();
+		var user = await _userManager.Users
+			.AsNoTracking()
+			.FirstOrDefaultAsync(x => x.Id == id);
+
+		if (user == null)
+			return NotFound();
 
 		var roles = await _userManager.GetRolesAsync(user);
 
 		var accesses = await _db.UserAlbumAccesses
+			.AsNoTracking()
 			.Include(x => x.PortfolioAlbum)
 			.Where(x => x.UserId == id)
 			.OrderBy(x => x.PortfolioAlbum.Title)
@@ -88,6 +109,7 @@ public class AdminUsersController : ControllerBase
 		var assignedGalleryIds = accesses.Select(x => x.galleryId).ToHashSet();
 
 		var availableGalleries = await _db.PortfolioAlbums
+			.AsNoTracking()
 			.Where(x => x.AllowClientAccess && !assignedGalleryIds.Contains(x.Id))
 			.OrderBy(x => x.Title)
 			.Select(x => new
@@ -104,11 +126,7 @@ public class AdminUsersController : ControllerBase
 			{
 				user.Id,
 				user.Email,
-
-				// Confirm email логиката е временно спряна,
-				// но полето още го връщаме за съвместимост.
 				user.EmailConfirmed,
-
 				user.IsBlocked,
 				Roles = roles
 			},

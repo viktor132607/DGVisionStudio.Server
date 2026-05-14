@@ -1,4 +1,5 @@
-﻿using DGVisionStudio.Infrastructure.Data;
+﻿using DGVisionStudio.Application.Interfaces;
+using DGVisionStudio.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -26,10 +27,11 @@ public class ExpiredGalleryCleanupService : BackgroundService
 			try
 			{
 				await CleanupExpiredDownloadsAsync(stoppingToken);
+				await CleanupExpiredUserGalleriesAsync(stoppingToken);
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error while cleaning up expired album downloads.");
+				_logger.LogError(ex, "Error while cleaning up expired galleries.");
 			}
 
 			await Task.Delay(TimeSpan.FromHours(6), stoppingToken);
@@ -64,5 +66,23 @@ public class ExpiredGalleryCleanupService : BackgroundService
 		_logger.LogInformation(
 			"Expired album download cleanup completed. Processed {Count} expired access records.",
 			expiredAccesses.Count);
+	}
+
+	private async Task CleanupExpiredUserGalleriesAsync(CancellationToken cancellationToken)
+	{
+		using var scope = _scopeFactory.CreateScope();
+
+		var clientGalleryService = scope.ServiceProvider.GetRequiredService<IClientGalleryService>();
+
+		var markedCount = await clientGalleryService.MarkExpiredUserGalleriesAsync(cancellationToken);
+		var deletedCount = await clientGalleryService.DeleteExpiredUserGalleriesAsync(cancellationToken);
+
+		if (markedCount > 0 || deletedCount > 0)
+		{
+			_logger.LogInformation(
+				"Expired user gallery cleanup completed. Marked: {MarkedCount}, Deleted: {DeletedCount}.",
+				markedCount,
+				deletedCount);
+		}
 	}
 }
