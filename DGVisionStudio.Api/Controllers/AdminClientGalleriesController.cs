@@ -17,6 +17,8 @@ namespace DGVisionStudio.Infrastructure.Controllers;
 [Authorize(Roles = "Admin")]
 public class AdminClientGalleriesController : ControllerBase
 {
+	private const long MaxPhotoUploadSizeBytes = 20 * 1024 * 1024;
+
 	private readonly IClientGalleryService _clientGalleryService;
 	private readonly IAuditLogService _auditLogService;
 	private readonly UserManager<ApplicationUser> _userManager;
@@ -310,6 +312,8 @@ public class AdminClientGalleriesController : ControllerBase
 	}
 
 	[EnableRateLimiting("upload")]
+	[RequestSizeLimit(MaxPhotoUploadSizeBytes)]
+	[RequestFormLimits(MultipartBodyLengthLimit = MaxPhotoUploadSizeBytes)]
 	[HttpPost("{galleryId:int}/photos/upload")]
 	public async Task<IActionResult> UploadPhoto(
 		[FromRoute] int galleryId,
@@ -317,6 +321,12 @@ public class AdminClientGalleriesController : ControllerBase
 	{
 		if (file == null || file.Length == 0)
 			return BadRequest(new { message = "File is required." });
+
+		if (file.Length > MaxPhotoUploadSizeBytes)
+			return BadRequest(new { message = "Photo is too large. Maximum size is 20MB." });
+
+		if (!file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+			return BadRequest(new { message = "Only image files are allowed." });
 
 		var photo = await _clientGalleryService.UploadPhotoAsync(galleryId, file);
 		if (photo == null)
