@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -311,7 +310,6 @@ public class AdminClientGalleriesController : ControllerBase
 		return Ok(new { message = "Gallery access removed successfully." });
 	}
 
-	[EnableRateLimiting("upload")]
 	[RequestSizeLimit(MaxPhotoUploadSizeBytes)]
 	[RequestFormLimits(MultipartBodyLengthLimit = MaxPhotoUploadSizeBytes)]
 	[HttpPost("{galleryId:int}/photos/upload")]
