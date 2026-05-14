@@ -12,26 +12,35 @@ namespace DGVisionStudio.Infrastructure.Controllers;
 [Route("api/admin/dashboard")]
 public class AdminDashboardController : ControllerBase
 {
-    private readonly AppDbContext _context;
-    private readonly UserManager<ApplicationUser> _userManager;
+	private readonly AppDbContext _context;
+	private readonly UserManager<ApplicationUser> _userManager;
 
-    public AdminDashboardController(AppDbContext context, UserManager<ApplicationUser> userManager)
-    {
-        _context = context;
-        _userManager = userManager;
-    }
+	public AdminDashboardController(AppDbContext context, UserManager<ApplicationUser> userManager)
+	{
+		_context = context;
+		_userManager = userManager;
+	}
 
-    [HttpGet]
-    public async Task<IActionResult> GetStats()
-    {
-        var users = await _userManager.Users.CountAsync();
-        var contacts = await _context.ContactRequests.CountAsync();
-        var services = await _context.Services.CountAsync();
-        var categories = await _context.PortfolioCategories.CountAsync();
-        var albums = await _context.PortfolioAlbums.CountAsync();
-        var images = await _context.PortfolioImages.CountAsync();
-        var testimonials = await _context.Testimonials.CountAsync();
+	[HttpGet]
+	public async Task<IActionResult> GetStats()
+	{
+		var users = await _userManager.Users.CountAsync();
+		var contacts = await _context.ContactRequests.CountAsync();
+		var services = await _context.Services.CountAsync();
+		var portfolioCategories = await _context.PortfolioCategories.CountAsync();
+		var portfolioAlbums = await _context.PortfolioAlbums.CountAsync();
+		var portfolioImages = await _context.PortfolioImages.CountAsync();
+		var testimonials = await _context.Testimonials.CountAsync();
 
-        return Ok(new { users, contacts, services, categories, albums, images, testimonials });
-    }
+		return Ok(new
+		{
+			users,
+			contacts,
+			services,
+			testimonials,
+			portfolioCategories,
+			portfolioAlbums,
+			portfolioImages
+		});
+	}
 }
