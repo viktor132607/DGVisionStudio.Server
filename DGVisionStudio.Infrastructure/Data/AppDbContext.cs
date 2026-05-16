@@ -20,6 +20,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 	public DbSet<SiteSetting> SiteSettings => Set<SiteSetting>();
 	public DbSet<UserAlbumAccess> UserAlbumAccesses => Set<UserAlbumAccess>();
 	public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+	public DbSet<PrintRequest> PrintRequests => Set<PrintRequest>();
+	public DbSet<PrintRequestItem> PrintRequestItems => Set<PrintRequestItem>();
 
 	protected override void OnModelCreating(ModelBuilder builder)
 	{
@@ -28,6 +30,14 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 		builder.Entity<ApplicationUser>()
 			.Property(x => x.IsBlocked)
 			.HasDefaultValue(false);
+
+		builder.Entity<ApplicationUser>()
+			.Property(x => x.IsSeenByAdmin)
+			.HasDefaultValue(false);
+
+		builder.Entity<ApplicationUser>()
+			.Property(x => x.CreatedAtUtc)
+			.HasDefaultValueSql("NOW()");
 
 		builder.Entity<ContactRequest>(entity =>
 		{
@@ -38,8 +48,10 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 			entity.Property(x => x.Subject).HasMaxLength(200);
 			entity.Property(x => x.Message).IsRequired().HasMaxLength(4000);
 			entity.Property(x => x.AdminComment).HasMaxLength(2000);
+			entity.Property(x => x.IsSeenByAdmin).HasDefaultValue(false);
 			entity.HasIndex(x => x.CreatedAtUtc);
 			entity.HasIndex(x => x.Status);
+			entity.HasIndex(x => x.IsSeenByAdmin);
 		});
 
 		builder.Entity<EmailLog>(entity =>
@@ -105,7 +117,9 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 			entity.Property(x => x.AllowClientAccess).HasDefaultValue(true);
 			entity.Property(x => x.IsPublished).HasDefaultValue(true);
 			entity.Property(x => x.IsUserUploaded).HasDefaultValue(false);
+			entity.Property(x => x.IsSeenByAdmin).HasDefaultValue(false);
 			entity.Property(x => x.OwnerUserId).HasMaxLength(450);
+			entity.Property(x => x.GalleryType).HasConversion<int>();
 			entity.Property(x => x.UserGalleryStatus).HasConversion<int>();
 			entity.Property(x => x.IsDeleted).HasDefaultValue(false);
 
@@ -116,7 +130,9 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 			entity.HasIndex(x => x.DisplayOrder);
 			entity.HasIndex(x => x.IsPublished);
 			entity.HasIndex(x => x.AllowClientAccess);
+			entity.HasIndex(x => x.GalleryType);
 			entity.HasIndex(x => x.IsUserUploaded);
+			entity.HasIndex(x => x.IsSeenByAdmin);
 			entity.HasIndex(x => x.OwnerUserId);
 			entity.HasIndex(x => x.ExpiresAtUtc);
 			entity.HasIndex(x => x.UserGalleryStatus);
@@ -211,6 +227,58 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 			entity.HasIndex(x => x.EntityType);
 			entity.HasIndex(x => x.EntityId);
 			entity.HasIndex(x => new { x.EntityType, x.EntityId });
+		});
+
+		builder.Entity<PrintRequest>(entity =>
+		{
+			entity.HasKey(x => x.Id);
+
+			entity.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+			entity.Property(x => x.FullName).IsRequired().HasMaxLength(150);
+			entity.Property(x => x.Email).IsRequired().HasMaxLength(150);
+			entity.Property(x => x.Phone).HasMaxLength(50);
+			entity.Property(x => x.Notes).HasMaxLength(2000);
+			entity.Property(x => x.Status).IsRequired().HasMaxLength(40).HasDefaultValue("New");
+			entity.Property(x => x.IsSeenByAdmin).HasDefaultValue(false);
+
+			entity.HasIndex(x => x.UserId);
+			entity.HasIndex(x => x.PortfolioAlbumId);
+			entity.HasIndex(x => x.Status);
+			entity.HasIndex(x => x.IsSeenByAdmin);
+			entity.HasIndex(x => x.CreatedAtUtc);
+
+			entity.HasOne(x => x.User)
+				.WithMany()
+				.HasForeignKey(x => x.UserId)
+				.OnDelete(DeleteBehavior.Cascade);
+
+			entity.HasOne(x => x.PortfolioAlbum)
+				.WithMany()
+				.HasForeignKey(x => x.PortfolioAlbumId)
+				.OnDelete(DeleteBehavior.Cascade);
+		});
+
+		builder.Entity<PrintRequestItem>(entity =>
+		{
+			entity.HasKey(x => x.Id);
+
+			entity.Property(x => x.Quantity).HasDefaultValue(1);
+			entity.Property(x => x.Size).IsRequired().HasMaxLength(50);
+			entity.Property(x => x.PaperType).HasMaxLength(100);
+			entity.Property(x => x.Notes).HasMaxLength(1000);
+
+			entity.HasIndex(x => x.PrintRequestId);
+			entity.HasIndex(x => x.PortfolioImageId);
+
+			entity.HasOne(x => x.PrintRequest)
+				.WithMany(x => x.Items)
+				.HasForeignKey(x => x.PrintRequestId)
+				.OnDelete(DeleteBehavior.Cascade);
+
+			entity.HasOne(x => x.PortfolioImage)
+				.WithMany()
+				.HasForeignKey(x => x.PortfolioImageId)
+				.OnDelete(DeleteBehavior.Restrict);
 		});
 	}
 }

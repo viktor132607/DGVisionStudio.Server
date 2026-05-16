@@ -4,15 +4,16 @@ namespace DGVisionStudio.Domain.Entities;
 
 public class ContactRequest
 {
-    public Guid Id { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public string? Phone { get; set; }
-    public string? Subject { get; set; }
-    public string Message { get; set; } = string.Empty;
-    public ContactRequestStatus Status { get; set; } = ContactRequestStatus.New;
-    public string? AdminComment { get; set; }
-    public bool IsArchived { get; set; }
-    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
-    public DateTime? UpdatedAtUtc { get; set; }
+	public Guid Id { get; set; }
+	public string Name { get; set; } = string.Empty;
+	public string Email { get; set; } = string.Empty;
+	public string? Phone { get; set; }
+	public string? Subject { get; set; }
+	public string Message { get; set; } = string.Empty;
+	public ContactRequestStatus Status { get; set; } = ContactRequestStatus.New;
+	public string? AdminComment { get; set; }
+	public bool IsArchived { get; set; }
+	public bool IsSeenByAdmin { get; set; } = false;
+	public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+	public DateTime? UpdatedAtUtc { get; set; }
 }

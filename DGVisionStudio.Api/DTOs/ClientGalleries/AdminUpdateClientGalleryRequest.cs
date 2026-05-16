@@ -1,4 +1,6 @@
-﻿namespace DGVisionStudio.Application.DTOs.ClientGalleries;
+﻿using DGVisionStudio.Domain.Enums;
+
+namespace DGVisionStudio.Application.DTOs.ClientGalleries;
 
 public class AdminUpdateClientGalleryRequest
 {
@@ -17,6 +19,10 @@ public class AdminUpdateClientGalleryRequest
 	public bool IsPublished { get; set; }
 
 	public int? PortfolioCategoryId { get; set; }
+
+	public GalleryType GalleryType { get; set; }
+
+	public UserClientGalleryStatus UserGalleryStatus { get; set; }
 
 	public List<GalleryUserAccessDto> UserAccesses { get; set; } = new();
 }

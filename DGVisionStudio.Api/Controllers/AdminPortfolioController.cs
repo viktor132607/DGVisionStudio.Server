@@ -265,6 +265,7 @@ public class AdminPortfolioController : ControllerBase
 
 		var albums = await _context.PortfolioAlbums
 			.AsNoTracking()
+			.Where(x => !x.IsUserUploaded)
 			.OrderBy(x => x.DisplayOrder)
 			.ThenBy(x => x.Id)
 			.Select(x => new
@@ -303,7 +304,9 @@ public class AdminPortfolioController : ControllerBase
 			.Distinct()
 			.ToHashSet();
 
-		var albums = await _context.PortfolioAlbums.ToListAsync();
+		var albums = await _context.PortfolioAlbums
+			.Where(x => !x.IsUserUploaded)
+			.ToListAsync();
 
 		var oldValue = albums
 			.Where(x => x.PortfolioCategoryId == id)
@@ -371,7 +374,7 @@ public class AdminPortfolioController : ControllerBase
 		};
 
 		var albumsInCategory = await _context.PortfolioAlbums
-			.Where(x => x.PortfolioCategoryId == id)
+			.Where(x => x.PortfolioCategoryId == id && !x.IsUserUploaded)
 			.Include(x => x.Images)
 			.ToListAsync();
 
@@ -445,6 +448,7 @@ public class AdminPortfolioController : ControllerBase
 		var source = _context.PortfolioAlbums
 			.AsNoTracking()
 			.Include(x => x.PortfolioCategory)
+			.Where(x => !x.IsUserUploaded)
 			.OrderBy(x => x.PortfolioCategoryId)
 			.ThenBy(x => x.DisplayOrder)
 			.ThenBy(x => x.Id);
@@ -499,6 +503,8 @@ public class AdminPortfolioController : ControllerBase
 			DisplayOrder = model.DisplayOrder,
 			ColumnNumber = model.ColumnNumber,
 			IsPublished = model.IsPublished,
+			IsUserUploaded = false,
+			IsSeenByAdmin = true,
 			IsDeleted = false,
 			DeletedAtUtc = null,
 			CreatedAtUtc = DateTime.UtcNow
@@ -529,7 +535,9 @@ public class AdminPortfolioController : ControllerBase
 	{
 		await using var transaction = await _context.Database.BeginTransactionAsync();
 
-		var entity = await _context.PortfolioAlbums.FindAsync(id);
+		var entity = await _context.PortfolioAlbums
+			.FirstOrDefaultAsync(x => x.Id == id && !x.IsUserUploaded);
+
 		if (entity == null)
 			return NotFound();
 
@@ -622,7 +630,7 @@ public class AdminPortfolioController : ControllerBase
 
 		var entity = await _context.PortfolioAlbums
 			.Include(x => x.Images)
-			.FirstOrDefaultAsync(x => x.Id == id);
+			.FirstOrDefaultAsync(x => x.Id == id && !x.IsUserUploaded);
 
 		if (entity == null)
 			return NotFound();
@@ -696,6 +704,7 @@ public class AdminPortfolioController : ControllerBase
 		var source = _context.PortfolioImages
 			.AsNoTracking()
 			.Include(x => x.PortfolioAlbum)
+			.Where(x => x.PortfolioAlbum != null && !x.PortfolioAlbum.IsUserUploaded)
 			.OrderBy(x => x.PortfolioAlbumId)
 			.ThenBy(x => x.DisplayOrder)
 			.ThenBy(x => x.Id);
@@ -721,7 +730,7 @@ public class AdminPortfolioController : ControllerBase
 	{
 		await using var transaction = await _context.Database.BeginTransactionAsync();
 
-		if (!await _context.PortfolioAlbums.AsNoTracking().AnyAsync(x => x.Id == model.PortfolioAlbumId))
+		if (!await _context.PortfolioAlbums.AsNoTracking().AnyAsync(x => x.Id == model.PortfolioAlbumId && !x.IsUserUploaded))
 			return BadRequest(new { message = "Невалиден албум." });
 
 		var imageUrl = (model.ImageUrl ?? string.Empty).Trim();
@@ -770,7 +779,10 @@ public class AdminPortfolioController : ControllerBase
 	{
 		await using var transaction = await _context.Database.BeginTransactionAsync();
 
-		var entity = await _context.PortfolioImages.FindAsync(id);
+		var entity = await _context.PortfolioImages
+			.Include(x => x.PortfolioAlbum)
+			.FirstOrDefaultAsync(x => x.Id == id && x.PortfolioAlbum != null && !x.PortfolioAlbum.IsUserUploaded);
+
 		if (entity == null)
 			return NotFound();
 
@@ -791,7 +803,7 @@ public class AdminPortfolioController : ControllerBase
 			entity.DeletedAtUtc
 		};
 
-		if (!await _context.PortfolioAlbums.AsNoTracking().AnyAsync(x => x.Id == model.PortfolioAlbumId))
+		if (!await _context.PortfolioAlbums.AsNoTracking().AnyAsync(x => x.Id == model.PortfolioAlbumId && !x.IsUserUploaded))
 			return BadRequest(new { message = "Невалиден албум." });
 
 		var imageUrl = (model.ImageUrl ?? string.Empty).Trim();
@@ -853,7 +865,10 @@ public class AdminPortfolioController : ControllerBase
 	{
 		await using var transaction = await _context.Database.BeginTransactionAsync();
 
-		var entity = await _context.PortfolioImages.FindAsync(id);
+		var entity = await _context.PortfolioImages
+			.Include(x => x.PortfolioAlbum)
+			.FirstOrDefaultAsync(x => x.Id == id && x.PortfolioAlbum != null && !x.PortfolioAlbum.IsUserUploaded);
+
 		if (entity == null)
 			return NotFound();
 

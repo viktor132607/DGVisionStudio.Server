@@ -123,9 +123,11 @@ public class AdminClientGalleriesController : ControllerBase
 		var galleryId = await _clientGalleryService.CreateGalleryAsync(request);
 
 		_logger.LogInformation(
-			"Admin created client gallery. GalleryId: {GalleryId}, Title: {Title}, IsPublic: {IsPublic}, IsPublished: {IsPublished}, Admin: {Admin}, TraceId: {TraceId}",
+			"Admin created client gallery. GalleryId: {GalleryId}, Title: {Title}, GalleryType: {GalleryType}, UserGalleryStatus: {UserGalleryStatus}, IsPublic: {IsPublic}, IsPublished: {IsPublished}, Admin: {Admin}, TraceId: {TraceId}",
 			galleryId,
 			request.Title,
+			request.GalleryType,
+			request.UserGalleryStatus,
 			request.IsPublic,
 			request.IsPublished,
 			User.Identity?.Name,
@@ -160,9 +162,11 @@ public class AdminClientGalleriesController : ControllerBase
 			return NotFound(new { message = "Gallery not found." });
 
 		_logger.LogInformation(
-			"Admin updated client gallery. GalleryId: {GalleryId}, Title: {Title}, IsPublic: {IsPublic}, IsPublished: {IsPublished}, Admin: {Admin}, TraceId: {TraceId}",
+			"Admin updated client gallery. GalleryId: {GalleryId}, Title: {Title}, GalleryType: {GalleryType}, UserGalleryStatus: {UserGalleryStatus}, IsPublic: {IsPublic}, IsPublished: {IsPublished}, Admin: {Admin}, TraceId: {TraceId}",
 			galleryId,
 			request.Title,
+			request.GalleryType,
+			request.UserGalleryStatus,
 			request.IsPublic,
 			request.IsPublished,
 			User.Identity?.Name,
@@ -315,7 +319,7 @@ public class AdminClientGalleriesController : ControllerBase
 	[HttpPost("{galleryId:int}/photos/upload")]
 	public async Task<IActionResult> UploadPhoto(
 		[FromRoute] int galleryId,
-		[FromForm] IFormFile file)
+		IFormFile file)
 	{
 		if (file == null || file.Length == 0)
 			return BadRequest(new { message = "File is required." });

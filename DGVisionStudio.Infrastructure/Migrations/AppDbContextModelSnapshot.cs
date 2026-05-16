@@ -34,6 +34,11 @@ namespace DGVisionStudio.Infrastructure.Migrations
                         .IsConcurrencyToken()
                         .HasColumnType("text");
 
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("NOW()");
+
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
@@ -42,6 +47,11 @@ namespace DGVisionStudio.Infrastructure.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<bool>("IsBlocked")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsSeenByAdmin")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(false);
@@ -184,6 +194,11 @@ namespace DGVisionStudio.Infrastructure.Migrations
                     b.Property<bool>("IsArchived")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsSeenByAdmin")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("Message")
                         .IsRequired()
                         .HasMaxLength(4000)
@@ -211,6 +226,8 @@ namespace DGVisionStudio.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedAtUtc");
+
+                    b.HasIndex("IsSeenByAdmin");
 
                     b.HasIndex("Status");
 
@@ -295,6 +312,9 @@ namespace DGVisionStudio.Infrastructure.Migrations
                     b.Property<DateTime?>("ExpiresAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("GalleryType")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -304,6 +324,11 @@ namespace DGVisionStudio.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(true);
+
+                    b.Property<bool>("IsSeenByAdmin")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<bool>("IsUserUploaded")
                         .ValueGeneratedOnAdd()
@@ -344,9 +369,13 @@ namespace DGVisionStudio.Infrastructure.Migrations
 
                     b.HasIndex("ExpiresAtUtc");
 
+                    b.HasIndex("GalleryType");
+
                     b.HasIndex("IsDeleted");
 
                     b.HasIndex("IsPublished");
+
+                    b.HasIndex("IsSeenByAdmin");
 
                     b.HasIndex("IsUserUploaded");
 
@@ -488,6 +517,114 @@ namespace DGVisionStudio.Infrastructure.Migrations
                     b.HasIndex("PortfolioAlbumId");
 
                     b.ToTable("PortfolioImages");
+                });
+
+            modelBuilder.Entity("DGVisionStudio.Domain.Entities.PrintRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<bool>("IsSeenByAdmin")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("PortfolioAlbumId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasDefaultValue("New");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAtUtc");
+
+                    b.HasIndex("IsSeenByAdmin");
+
+                    b.HasIndex("PortfolioAlbumId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("PrintRequests");
+                });
+
+            modelBuilder.Entity("DGVisionStudio.Domain.Entities.PrintRequestItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("PaperType")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("PortfolioImageId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PrintRequestId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Quantity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
+                    b.Property<string>("Size")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PortfolioImageId");
+
+                    b.HasIndex("PrintRequestId");
+
+                    b.ToTable("PrintRequestItems");
                 });
 
             modelBuilder.Entity("DGVisionStudio.Domain.Entities.Service", b =>
@@ -825,6 +962,44 @@ namespace DGVisionStudio.Infrastructure.Migrations
                     b.Navigation("PortfolioAlbum");
                 });
 
+            modelBuilder.Entity("DGVisionStudio.Domain.Entities.PrintRequest", b =>
+                {
+                    b.HasOne("DGVisionStudio.Domain.Entities.PortfolioAlbum", "PortfolioAlbum")
+                        .WithMany()
+                        .HasForeignKey("PortfolioAlbumId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("DGVisionStudio.Domain.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PortfolioAlbum");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("DGVisionStudio.Domain.Entities.PrintRequestItem", b =>
+                {
+                    b.HasOne("DGVisionStudio.Domain.Entities.PortfolioImage", "PortfolioImage")
+                        .WithMany()
+                        .HasForeignKey("PortfolioImageId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DGVisionStudio.Domain.Entities.PrintRequest", "PrintRequest")
+                        .WithMany("Items")
+                        .HasForeignKey("PrintRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PortfolioImage");
+
+                    b.Navigation("PrintRequest");
+                });
+
             modelBuilder.Entity("DGVisionStudio.Domain.Entities.UserAlbumAccess", b =>
                 {
                     b.HasOne("DGVisionStudio.Domain.Entities.PortfolioAlbum", "PortfolioAlbum")
@@ -905,6 +1080,11 @@ namespace DGVisionStudio.Infrastructure.Migrations
             modelBuilder.Entity("DGVisionStudio.Domain.Entities.PortfolioCategory", b =>
                 {
                     b.Navigation("Albums");
+                });
+
+            modelBuilder.Entity("DGVisionStudio.Domain.Entities.PrintRequest", b =>
+                {
+                    b.Navigation("Items");
                 });
 #pragma warning restore 612, 618
         }

@@ -69,7 +69,7 @@ public class ClientGalleryService : IClientGalleryService
 			.AsNoTracking()
 			.Include(x => x.PortfolioCategory)
 			.Include(x => x.OwnerUser)
-			.Where(x => x.IsUserUploaded && x.OwnerUserId == userId && x.AllowClientAccess)
+			.Where(x => x.GalleryType == GalleryType.ClientPrintUpload && x.IsUserUploaded && x.OwnerUserId == userId && x.AllowClientAccess)
 			.ToListAsync();
 
 		var result = new List<MyClientGalleryDto>();
@@ -110,7 +110,7 @@ public class ClientGalleryService : IClientGalleryService
 			return null;
 
 		var access = album.UserAccesses.FirstOrDefault(x => x.UserId == userId);
-		var isOwner = album.IsUserUploaded && album.OwnerUserId == userId;
+		var isOwner = album.GalleryType == GalleryType.ClientPrintUpload && album.IsUserUploaded && album.OwnerUserId == userId;
 
 		if (!isOwner && access == null)
 			return null;
@@ -180,7 +180,7 @@ public class ClientGalleryService : IClientGalleryService
 			.ThenByDescending(x => x.DownloadExpiresAtUtc)
 			.FirstOrDefault();
 
-		var canDownload = !album.IsUserUploaded || !IsUserGalleryExpired(album, now);
+		var canDownload = album.GalleryType != GalleryType.ClientPrintUpload || !IsUserGalleryExpired(album, now);
 
 		var dto = MapGalleryDetailsDto(album, now, firstDownloadAccess, canDownload, isOwner: false, isAdminView: true);
 		dto.AvailableUsers = users;
@@ -191,6 +191,9 @@ public class ClientGalleryService : IClientGalleryService
 	public async Task<int> CreateGalleryAsync(AdminCreateClientGalleryRequest request)
 	{
 		await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+		var galleryType = NormalizeGalleryType(request.GalleryType);
+		var status = NormalizeGalleryStatus(galleryType, request.UserGalleryStatus);
 
 		var categoryId = request.IsPublic
 			? request.PortfolioCategoryId ?? await EnsureClientAlbumsCategoryAsync()
@@ -215,8 +218,9 @@ public class ClientGalleryService : IClientGalleryService
 			DisplayOrder = maxDisplayOrder + 1,
 			IsPublished = request.IsPublic && request.IsPublished,
 			AllowClientAccess = request.IsActive,
+			GalleryType = galleryType,
 			IsUserUploaded = false,
-			UserGalleryStatus = UserClientGalleryStatus.Processed,
+			UserGalleryStatus = status,
 			IsDeleted = false,
 			DeletedAtUtc = null,
 			CreatedAtUtc = DateTime.UtcNow
@@ -230,9 +234,11 @@ public class ClientGalleryService : IClientGalleryService
 		await transaction.CommitAsync();
 
 		_logger.LogInformation(
-			"Admin client gallery created. GalleryId: {GalleryId}, Title: {Title}, IsPublic: {IsPublic}, IsPublished: {IsPublished}, IsActive: {IsActive}",
+			"Admin client gallery created. GalleryId: {GalleryId}, Title: {Title}, GalleryType: {GalleryType}, Status: {Status}, IsPublic: {IsPublic}, IsPublished: {IsPublished}, IsActive: {IsActive}",
 			album.Id,
 			album.Title,
+			album.GalleryType,
+			album.UserGalleryStatus,
 			request.IsPublic,
 			request.IsPublished,
 			request.IsActive);
@@ -250,6 +256,9 @@ public class ClientGalleryService : IClientGalleryService
 
 		if (album == null)
 			return false;
+
+		var galleryType = NormalizeGalleryType(request.GalleryType);
+		var status = NormalizeGalleryStatus(galleryType, request.UserGalleryStatus);
 
 		var title = request.Title.Trim();
 		var titleEn = string.IsNullOrWhiteSpace(request.TitleEn) ? null : request.TitleEn.Trim();
@@ -269,6 +278,15 @@ public class ClientGalleryService : IClientGalleryService
 		album.PortfolioCategoryId = request.IsPublic
 			? request.PortfolioCategoryId ?? album.PortfolioCategoryId
 			: await EnsureClientAlbumsCategoryAsync();
+		album.GalleryType = galleryType;
+		album.UserGalleryStatus = status;
+
+		if (galleryType == GalleryType.Photoshoot)
+		{
+			album.IsUserUploaded = false;
+			album.OwnerUserId = null;
+			album.ExpiresAtUtc = null;
+		}
 
 		await _dbContext.SaveChangesAsync();
 
@@ -277,9 +295,11 @@ public class ClientGalleryService : IClientGalleryService
 		await transaction.CommitAsync();
 
 		_logger.LogInformation(
-			"Admin client gallery updated. GalleryId: {GalleryId}, Title: {Title}, IsPublic: {IsPublic}, IsPublished: {IsPublished}, IsActive: {IsActive}",
+			"Admin client gallery updated. GalleryId: {GalleryId}, Title: {Title}, GalleryType: {GalleryType}, Status: {Status}, IsPublic: {IsPublic}, IsPublished: {IsPublished}, IsActive: {IsActive}",
 			album.Id,
 			album.Title,
+			album.GalleryType,
+			album.UserGalleryStatus,
 			request.IsPublic,
 			request.IsPublished,
 			request.IsActive);
@@ -340,6 +360,7 @@ public class ClientGalleryService : IClientGalleryService
 
 		var activeUserGalleryCount = await _dbContext.PortfolioAlbums
 			.CountAsync(x =>
+				x.GalleryType == GalleryType.ClientPrintUpload &&
 				x.IsUserUploaded &&
 				x.OwnerUserId == userId &&
 				x.AllowClientAccess &&
@@ -379,6 +400,7 @@ public class ClientGalleryService : IClientGalleryService
 			DisplayOrder = maxDisplayOrder + 1,
 			IsPublished = false,
 			AllowClientAccess = true,
+			GalleryType = GalleryType.ClientPrintUpload,
 			IsUserUploaded = true,
 			OwnerUserId = userId,
 			ExpiresAtUtc = now.AddDays(UserUploadedGalleryLifetimeDays),
@@ -394,10 +416,11 @@ public class ClientGalleryService : IClientGalleryService
 		await transaction.CommitAsync();
 
 		_logger.LogInformation(
-			"User client gallery created. GalleryId: {GalleryId}, OwnerUserId: {OwnerUserId}, Title: {Title}, ExpiresAtUtc: {ExpiresAtUtc}, Status: {Status}",
+			"User client gallery created. GalleryId: {GalleryId}, OwnerUserId: {OwnerUserId}, Title: {Title}, GalleryType: {GalleryType}, ExpiresAtUtc: {ExpiresAtUtc}, Status: {Status}",
 			album.Id,
 			album.OwnerUserId,
 			album.Title,
+			album.GalleryType,
 			album.ExpiresAtUtc,
 			album.UserGalleryStatus);
 
@@ -416,6 +439,7 @@ public class ClientGalleryService : IClientGalleryService
 			.Include(x => x.Images)
 			.FirstOrDefaultAsync(x =>
 				x.Id == galleryId &&
+				x.GalleryType == GalleryType.ClientPrintUpload &&
 				x.IsUserUploaded &&
 				x.OwnerUserId == userId &&
 				x.AllowClientAccess);
@@ -502,7 +526,7 @@ public class ClientGalleryService : IClientGalleryService
 		if (album == null)
 			return false;
 
-		if (album.IsUserUploaded && album.OwnerUserId == userId)
+		if (album.GalleryType == GalleryType.ClientPrintUpload && album.IsUserUploaded && album.OwnerUserId == userId)
 			return !requireDownload || !IsUserGalleryExpired(album, now);
 
 		var access = album.UserAccesses.FirstOrDefault(x => x.UserId == userId);
@@ -535,7 +559,7 @@ public class ClientGalleryService : IClientGalleryService
 		{
 			allowed = true;
 		}
-		else if (album.IsUserUploaded && album.OwnerUserId == userId && !IsUserGalleryExpired(album, now))
+		else if (album.GalleryType == GalleryType.ClientPrintUpload && album.IsUserUploaded && album.OwnerUserId == userId && !IsUserGalleryExpired(album, now))
 		{
 			allowed = true;
 		}
@@ -548,11 +572,12 @@ public class ClientGalleryService : IClientGalleryService
 		if (!allowed)
 		{
 			_logger.LogWarning(
-				"Photo download denied. GalleryId: {GalleryId}, PhotoId: {PhotoId}, UserId: {UserId}, IsAdmin: {IsAdmin}, IsUserUploaded: {IsUserUploaded}, OwnerUserId: {OwnerUserId}",
+				"Photo download denied. GalleryId: {GalleryId}, PhotoId: {PhotoId}, UserId: {UserId}, IsAdmin: {IsAdmin}, GalleryType: {GalleryType}, IsUserUploaded: {IsUserUploaded}, OwnerUserId: {OwnerUserId}",
 				galleryId,
 				photoId,
 				userId,
 				isAdmin,
+				album.GalleryType,
 				album.IsUserUploaded,
 				album.OwnerUserId);
 
@@ -750,6 +775,14 @@ public class ClientGalleryService : IClientGalleryService
 		{
 			album.CoverImageUrl = savedPath;
 			photo.IsCover = true;
+		}
+
+		if (album.GalleryType == GalleryType.Photoshoot &&
+			album.UserGalleryStatus != UserClientGalleryStatus.PhotoshootInProgress &&
+			album.UserGalleryStatus != UserClientGalleryStatus.PhotoshootReadyForPickup &&
+			album.UserGalleryStatus != UserClientGalleryStatus.PhotoshootCancelled)
+		{
+			album.UserGalleryStatus = UserClientGalleryStatus.PhotoshootUploaded;
 		}
 
 		await _dbContext.SaveChangesAsync();
@@ -952,6 +985,7 @@ public class ClientGalleryService : IClientGalleryService
 
 		var galleries = await _dbContext.PortfolioAlbums
 			.Where(x =>
+				x.GalleryType == GalleryType.ClientPrintUpload &&
 				x.IsUserUploaded &&
 				x.ExpiresAtUtc != null &&
 				x.ExpiresAtUtc < now &&
@@ -985,6 +1019,7 @@ public class ClientGalleryService : IClientGalleryService
 			.Include(x => x.Images)
 			.Include(x => x.UserAccesses)
 			.Where(x =>
+				x.GalleryType == GalleryType.ClientPrintUpload &&
 				x.IsUserUploaded &&
 				x.ExpiresAtUtc != null &&
 				x.ExpiresAtUtc < deleteBeforeUtc)
@@ -1237,6 +1272,7 @@ public class ClientGalleryService : IClientGalleryService
 			DownloadExpiresAtUtc = access?.DownloadExpiresAtUtc,
 			RemainingDownloadDays = access != null ? GetRemainingDays(access, now) : null,
 			IsExpired = access != null && IsExpired(access, now),
+			GalleryType = album.GalleryType,
 			IsUserUploaded = album.IsUserUploaded,
 			OwnerUserId = album.OwnerUserId,
 			OwnerEmail = album.OwnerUser?.Email,
@@ -1270,6 +1306,7 @@ public class ClientGalleryService : IClientGalleryService
 			DownloadExpiresAtUtc = access?.DownloadExpiresAtUtc,
 			RemainingDownloadDays = access != null ? GetRemainingDays(access, now) : null,
 			IsExpired = access != null && IsExpired(access, now),
+			GalleryType = album.GalleryType,
 			IsUserUploaded = album.IsUserUploaded,
 			OwnerUserId = album.OwnerUserId,
 			OwnerEmail = album.OwnerUser?.Email,
@@ -1360,14 +1397,15 @@ public class ClientGalleryService : IClientGalleryService
 
 	private static bool IsUserGalleryExpired(PortfolioAlbum album, DateTime now)
 	{
-		return album.IsUserUploaded &&
+		return album.GalleryType == GalleryType.ClientPrintUpload &&
+			   album.IsUserUploaded &&
 			   album.ExpiresAtUtc.HasValue &&
 			   album.ExpiresAtUtc.Value < now;
 	}
 
 	private static UserClientGalleryStatus GetEffectiveStatus(PortfolioAlbum album, DateTime now)
 	{
-		if (IsUserGalleryExpired(album, now))
+		if (album.GalleryType == GalleryType.ClientPrintUpload && IsUserGalleryExpired(album, now))
 			return UserClientGalleryStatus.Expired;
 
 		return album.UserGalleryStatus;
@@ -1383,6 +1421,9 @@ public class ClientGalleryService : IClientGalleryService
 
 	private static int? GetRemainingLifetimeDays(PortfolioAlbum album, DateTime now)
 	{
+		if (album.GalleryType != GalleryType.ClientPrintUpload)
+			return null;
+
 		if (!album.ExpiresAtUtc.HasValue)
 			return null;
 
@@ -1397,6 +1438,39 @@ public class ClientGalleryService : IClientGalleryService
 			".png" => "image/png",
 			".webp" => "image/webp",
 			_ => "application/octet-stream"
+		};
+	}
+
+	private static GalleryType NormalizeGalleryType(GalleryType galleryType)
+	{
+		return galleryType switch
+		{
+			GalleryType.Photoshoot => GalleryType.Photoshoot,
+			GalleryType.ClientPrintUpload => GalleryType.ClientPrintUpload,
+			_ => GalleryType.Photoshoot
+		};
+	}
+
+	private static UserClientGalleryStatus NormalizeGalleryStatus(GalleryType galleryType, UserClientGalleryStatus status)
+	{
+		if (galleryType == GalleryType.ClientPrintUpload)
+		{
+			return status switch
+			{
+				UserClientGalleryStatus.Pending => UserClientGalleryStatus.Pending,
+				UserClientGalleryStatus.Processed => UserClientGalleryStatus.Processed,
+				UserClientGalleryStatus.Expired => UserClientGalleryStatus.Expired,
+				_ => UserClientGalleryStatus.Pending
+			};
+		}
+
+		return status switch
+		{
+			UserClientGalleryStatus.PhotoshootUploaded => UserClientGalleryStatus.PhotoshootUploaded,
+			UserClientGalleryStatus.PhotoshootInProgress => UserClientGalleryStatus.PhotoshootInProgress,
+			UserClientGalleryStatus.PhotoshootReadyForPickup => UserClientGalleryStatus.PhotoshootReadyForPickup,
+			UserClientGalleryStatus.PhotoshootCancelled => UserClientGalleryStatus.PhotoshootCancelled,
+			_ => UserClientGalleryStatus.PhotoshootUploaded
 		};
 	}
 }

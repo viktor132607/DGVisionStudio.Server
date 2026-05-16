@@ -18,11 +18,13 @@ public class PortfolioAlbum
 	public bool AllowClientAccess { get; set; } = true;
 	public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
+	public GalleryType GalleryType { get; set; } = GalleryType.Photoshoot;
 	public bool IsUserUploaded { get; set; }
+	public bool IsSeenByAdmin { get; set; } = false;
 	public string? OwnerUserId { get; set; }
 	public ApplicationUser? OwnerUser { get; set; }
 	public DateTime? ExpiresAtUtc { get; set; }
-	public UserClientGalleryStatus UserGalleryStatus { get; set; } = UserClientGalleryStatus.Pending;
+	public UserClientGalleryStatus UserGalleryStatus { get; set; } = UserClientGalleryStatus.PhotoshootUploaded;
 
 	public bool IsDeleted { get; set; } = false;
 	public DateTime? DeletedAtUtc { get; set; }

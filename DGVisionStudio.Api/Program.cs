@@ -121,7 +121,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
 	options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-	options.KnownNetworks.Clear();
+	options.KnownIPNetworks.Clear();
 	options.KnownProxies.Clear();
 });
 
@@ -175,6 +175,12 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+	var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+	await dbContext.Database.MigrateAsync();
+}
 
 app.UseSerilogRequestLogging();
 

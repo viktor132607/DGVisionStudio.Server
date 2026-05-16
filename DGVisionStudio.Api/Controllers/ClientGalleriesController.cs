@@ -3,6 +3,7 @@ using DGVisionStudio.Application.Interfaces;
 using DGVisionStudio.Domain.Entities;
 using DGVisionStudio.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -81,7 +82,7 @@ public class ClientGalleriesController : ControllerBase
 	[HttpPost("{galleryId:int}/photos/upload")]
 	public async Task<IActionResult> UploadMyGalleryPhoto(
 		[FromRoute] int galleryId,
-		[FromForm] IFormFile file)
+		IFormFile file)
 	{
 		var user = await _userManager.GetUserAsync(User);
 		if (user == null)

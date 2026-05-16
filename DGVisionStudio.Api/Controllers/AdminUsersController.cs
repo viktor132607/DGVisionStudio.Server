@@ -42,7 +42,8 @@ public class AdminUsersController : ControllerBase
 
 		var source = _userManager.Users
 			.AsNoTracking()
-			.OrderByDescending(x => x.Email);
+			.OrderByDescending(x => x.CreatedAtUtc)
+			.ThenByDescending(x => x.Email);
 
 		var total = await source.CountAsync();
 
@@ -62,6 +63,8 @@ public class AdminUsersController : ControllerBase
 				user.Id,
 				user.Email,
 				user.IsBlocked,
+				user.IsSeenByAdmin,
+				user.CreatedAtUtc,
 				user.EmailConfirmed,
 				Roles = roles,
 				IsProtectedAdmin = _protectedAdmins.Contains(user.Email?.ToLowerInvariant() ?? string.Empty)
@@ -75,6 +78,26 @@ public class AdminUsersController : ControllerBase
 			Total = total,
 			Items = items
 		});
+	}
+
+	[HttpPut("seen")]
+	public async Task<IActionResult> MarkAllSeen()
+	{
+		var users = await _userManager.Users
+			.Where(x => !x.IsSeenByAdmin && !x.IsBlocked)
+			.ToListAsync();
+
+		foreach (var user in users)
+		{
+			user.IsSeenByAdmin = true;
+		}
+
+		foreach (var user in users)
+		{
+			await _userManager.UpdateAsync(user);
+		}
+
+		return NoContent();
 	}
 
 	[HttpGet("{id}/albums")]
@@ -110,7 +133,7 @@ public class AdminUsersController : ControllerBase
 
 		var availableGalleries = await _db.PortfolioAlbums
 			.AsNoTracking()
-			.Where(x => x.AllowClientAccess && !assignedGalleryIds.Contains(x.Id))
+			.Where(x => x.AllowClientAccess && !x.IsUserUploaded && !assignedGalleryIds.Contains(x.Id))
 			.OrderBy(x => x.Title)
 			.Select(x => new
 			{
@@ -128,6 +151,8 @@ public class AdminUsersController : ControllerBase
 				user.Email,
 				user.EmailConfirmed,
 				user.IsBlocked,
+				user.IsSeenByAdmin,
+				user.CreatedAtUtc,
 				Roles = roles
 			},
 			accesses,
@@ -173,6 +198,7 @@ public class AdminUsersController : ControllerBase
 			return BadRequest("Protected admin account.");
 
 		user.IsBlocked = true;
+		user.IsSeenByAdmin = true;
 		await _userManager.UpdateAsync(user);
 		return Ok();
 	}

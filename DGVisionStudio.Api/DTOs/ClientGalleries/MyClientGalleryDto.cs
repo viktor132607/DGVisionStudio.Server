@@ -36,6 +36,8 @@ public class MyClientGalleryDto
 
 	public bool IsExpired { get; set; }
 
+	public GalleryType GalleryType { get; set; }
+
 	public bool IsUserUploaded { get; set; }
 
 	public string? OwnerUserId { get; set; }

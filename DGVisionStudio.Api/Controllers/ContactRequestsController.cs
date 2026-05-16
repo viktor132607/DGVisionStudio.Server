@@ -3,8 +3,10 @@ using DGVisionStudio.Application.DTOs;
 using DGVisionStudio.Application.Interfaces;
 using DGVisionStudio.Domain.Entities;
 using DGVisionStudio.Infrastructure.Data;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 
 namespace DGVisionStudio.Infrastructure.Controllers;
 
@@ -38,6 +40,7 @@ public class ContactRequestsController : ControllerBase
 			Phone = string.IsNullOrWhiteSpace(dto.Phone) ? null : dto.Phone.Trim(),
 			Subject = string.IsNullOrWhiteSpace(dto.Subject) ? null : dto.Subject.Trim(),
 			Message = dto.Message.Trim(),
+			IsSeenByAdmin = false,
 			CreatedAtUtc = DateTime.UtcNow
 		};
 
@@ -98,5 +101,24 @@ public class ContactRequestsController : ControllerBase
 		}
 
 		return Ok(new { message = "Contact request submitted successfully.", id = entity.Id });
+	}
+
+	[Authorize(Roles = "Admin")]
+	[HttpPut("/api/admin/contact-requests/seen")]
+	public async Task<IActionResult> MarkAllSeen()
+	{
+		var requests = await _context.ContactRequests
+			.Where(x => !x.IsSeenByAdmin && !x.IsArchived)
+			.ToListAsync();
+
+		foreach (var request in requests)
+		{
+			request.IsSeenByAdmin = true;
+			request.UpdatedAtUtc = DateTime.UtcNow;
+		}
+
+		await _context.SaveChangesAsync();
+
+		return NoContent();
 	}
 }
