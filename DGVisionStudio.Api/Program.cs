@@ -155,16 +155,10 @@ builder.Services.AddRateLimiter(options =>
 });
 
 var frontendUrl = builder.Configuration["Frontend:Url"]?.TrimEnd('/');
-var allowedOrigins = new List<string>
-{
-	"http://localhost:5173",
-	"http://localhost:5175",
-	"https://dgvisionstudio.com",
-	"https://www.dgvisionstudio.com"
-};
 
-if (!string.IsNullOrWhiteSpace(frontendUrl) &&
-	!allowedOrigins.Contains(frontendUrl, StringComparer.OrdinalIgnoreCase))
+var allowedOrigins = new List<string>();
+
+if (!string.IsNullOrWhiteSpace(frontendUrl))
 {
 	allowedOrigins.Add(frontendUrl);
 }
