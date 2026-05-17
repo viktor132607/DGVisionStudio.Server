@@ -57,7 +57,10 @@ public class ClientGalleryService : IClientGalleryService
 				.ThenInclude(x => x.PortfolioCategory)
 			.Include(x => x.PortfolioAlbum)
 				.ThenInclude(x => x.OwnerUser)
-			.Where(x => x.UserId == userId && x.PortfolioAlbum.AllowClientAccess)
+			.Where(x =>
+				x.UserId == userId &&
+				x.PortfolioAlbum.AllowClientAccess &&
+				!x.PortfolioAlbum.IsDeleted)
 			.Select(x => new
 			{
 				Album = x.PortfolioAlbum,
@@ -69,7 +72,12 @@ public class ClientGalleryService : IClientGalleryService
 			.AsNoTracking()
 			.Include(x => x.PortfolioCategory)
 			.Include(x => x.OwnerUser)
-			.Where(x => x.GalleryType == GalleryType.ClientPrintUpload && x.IsUserUploaded && x.OwnerUserId == userId && x.AllowClientAccess)
+			.Where(x =>
+				x.GalleryType == GalleryType.ClientPrintUpload &&
+				x.IsUserUploaded &&
+				x.OwnerUserId == userId &&
+				x.AllowClientAccess &&
+				!x.IsDeleted)
 			.ToListAsync();
 
 		var result = new List<MyClientGalleryDto>();
@@ -104,7 +112,10 @@ public class ClientGalleryService : IClientGalleryService
 			.Include(x => x.Images)
 			.Include(x => x.UserAccesses)
 				.ThenInclude(x => x.User)
-			.FirstOrDefaultAsync(x => x.Id == galleryId && x.AllowClientAccess);
+			.FirstOrDefaultAsync(x =>
+				x.Id == galleryId &&
+				x.AllowClientAccess &&
+				!x.IsDeleted);
 
 		if (album == null)
 			return null;
@@ -131,7 +142,7 @@ public class ClientGalleryService : IClientGalleryService
 			.Include(x => x.PortfolioCategory)
 			.Include(x => x.OwnerUser)
 			.Include(x => x.UserAccesses)
-			.Where(x => x.AllowClientAccess)
+			.Where(x => !x.IsDeleted)
 			.OrderByDescending(x => x.CreatedAtUtc)
 			.ThenByDescending(x => x.Id)
 			.ToListAsync();
@@ -160,7 +171,7 @@ public class ClientGalleryService : IClientGalleryService
 			.Include(x => x.Images)
 			.Include(x => x.UserAccesses)
 				.ThenInclude(x => x.User)
-			.FirstOrDefaultAsync(x => x.Id == galleryId && x.AllowClientAccess);
+			.FirstOrDefaultAsync(x => x.Id == galleryId && !x.IsDeleted);
 
 		if (album == null)
 			return null;
@@ -200,7 +211,7 @@ public class ClientGalleryService : IClientGalleryService
 			: await EnsureClientAlbumsCategoryAsync();
 
 		var maxDisplayOrder = await _dbContext.PortfolioAlbums
-			.Where(x => x.PortfolioCategoryId == categoryId)
+			.Where(x => x.PortfolioCategoryId == categoryId && !x.IsDeleted)
 			.Select(x => (int?)x.DisplayOrder)
 			.MaxAsync() ?? 0;
 
@@ -252,7 +263,7 @@ public class ClientGalleryService : IClientGalleryService
 
 		var album = await _dbContext.PortfolioAlbums
 			.Include(x => x.UserAccesses)
-			.FirstOrDefaultAsync(x => x.Id == galleryId);
+			.FirstOrDefaultAsync(x => x.Id == galleryId && !x.IsDeleted);
 
 		if (album == null)
 			return false;
@@ -314,7 +325,7 @@ public class ClientGalleryService : IClientGalleryService
 		var album = await _dbContext.PortfolioAlbums
 			.Include(x => x.Images)
 			.Include(x => x.UserAccesses)
-			.FirstOrDefaultAsync(x => x.Id == galleryId);
+			.FirstOrDefaultAsync(x => x.Id == galleryId && !x.IsDeleted);
 
 		if (album == null)
 			return false;
@@ -364,6 +375,7 @@ public class ClientGalleryService : IClientGalleryService
 				x.IsUserUploaded &&
 				x.OwnerUserId == userId &&
 				x.AllowClientAccess &&
+				!x.IsDeleted &&
 				x.ExpiresAtUtc != null &&
 				x.ExpiresAtUtc > now);
 
@@ -385,7 +397,7 @@ public class ClientGalleryService : IClientGalleryService
 		var categoryId = await EnsureClientAlbumsCategoryAsync();
 
 		var maxDisplayOrder = await _dbContext.PortfolioAlbums
-			.Where(x => x.PortfolioCategoryId == categoryId)
+			.Where(x => x.PortfolioCategoryId == categoryId && !x.IsDeleted)
 			.Select(x => (int?)x.DisplayOrder)
 			.MaxAsync() ?? 0;
 
@@ -442,7 +454,8 @@ public class ClientGalleryService : IClientGalleryService
 				x.GalleryType == GalleryType.ClientPrintUpload &&
 				x.IsUserUploaded &&
 				x.OwnerUserId == userId &&
-				x.AllowClientAccess);
+				x.AllowClientAccess &&
+				!x.IsDeleted);
 
 		if (album == null)
 			return null;
@@ -473,6 +486,7 @@ public class ClientGalleryService : IClientGalleryService
 			CancellationToken.None);
 
 		var nextDisplayOrder = album.Images
+			.Where(x => !x.IsDeleted)
 			.Select(x => (int?)x.DisplayOrder)
 			.Max() ?? 0;
 
@@ -484,7 +498,7 @@ public class ClientGalleryService : IClientGalleryService
 			AltText = string.IsNullOrWhiteSpace(originalFileNameWithoutExtension) ? null : originalFileNameWithoutExtension.Trim(),
 			Caption = null,
 			DisplayOrder = nextDisplayOrder + 1,
-			IsCover = album.Images.Count == 0,
+			IsCover = !album.Images.Any(x => !x.IsDeleted),
 			IsPublished = true,
 			IsDeleted = false,
 			DeletedAtUtc = null,
@@ -521,7 +535,10 @@ public class ClientGalleryService : IClientGalleryService
 		var album = await _dbContext.PortfolioAlbums
 			.AsNoTracking()
 			.Include(x => x.UserAccesses)
-			.FirstOrDefaultAsync(x => x.Id == galleryId && x.AllowClientAccess);
+			.FirstOrDefaultAsync(x =>
+				x.Id == galleryId &&
+				x.AllowClientAccess &&
+				!x.IsDeleted);
 
 		if (album == null)
 			return false;
@@ -546,9 +563,12 @@ public class ClientGalleryService : IClientGalleryService
 			.AsNoTracking()
 			.Include(x => x.PortfolioAlbum)
 				.ThenInclude(x => x!.UserAccesses)
-			.FirstOrDefaultAsync(x => x.Id == photoId && x.PortfolioAlbumId == galleryId);
+			.FirstOrDefaultAsync(x =>
+				x.Id == photoId &&
+				x.PortfolioAlbumId == galleryId &&
+				!x.IsDeleted);
 
-		if (photo == null || photo.PortfolioAlbum == null)
+		if (photo == null || photo.PortfolioAlbum == null || photo.PortfolioAlbum.IsDeleted)
 			return null;
 
 		var album = photo.PortfolioAlbum;
@@ -611,7 +631,7 @@ public class ClientGalleryService : IClientGalleryService
 		return await _dbContext.UserAlbumAccesses
 			.AsNoTracking()
 			.Include(x => x.User)
-			.Where(x => x.PortfolioAlbumId == galleryId)
+			.Where(x => x.PortfolioAlbumId == galleryId && !x.PortfolioAlbum.IsDeleted)
 			.OrderBy(x => x.User.Email)
 			.Select(x => new GalleryUserAccessDto
 			{
@@ -628,15 +648,17 @@ public class ClientGalleryService : IClientGalleryService
 	{
 		await using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
-		var albumExists = await _dbContext.PortfolioAlbums
-			.AnyAsync(x => x.Id == galleryId && x.AllowClientAccess);
+		var album = await _dbContext.PortfolioAlbums
+			.FirstOrDefaultAsync(x => x.Id == galleryId && !x.IsDeleted);
 
-		if (!albumExists)
+		if (album == null)
 			return false;
 
 		var user = await _userManager.FindByEmailAsync(request.UserEmail.Trim());
 		if (user == null)
 			return false;
+
+		album.AllowClientAccess = true;
 
 		var access = await _dbContext.UserAlbumAccesses
 			.FirstOrDefaultAsync(x => x.PortfolioAlbumId == galleryId && x.UserId == user.Id);
@@ -681,7 +703,11 @@ public class ClientGalleryService : IClientGalleryService
 		await using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
 		var access = await _dbContext.UserAlbumAccesses
-			.FirstOrDefaultAsync(x => x.PortfolioAlbumId == galleryId && x.UserId == userId);
+			.Include(x => x.PortfolioAlbum)
+			.FirstOrDefaultAsync(x =>
+				x.PortfolioAlbumId == galleryId &&
+				x.UserId == userId &&
+				!x.PortfolioAlbum.IsDeleted);
 
 		if (access == null)
 			return false;
@@ -709,7 +735,11 @@ public class ClientGalleryService : IClientGalleryService
 		await using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
 		var access = await _dbContext.UserAlbumAccesses
-			.FirstOrDefaultAsync(x => x.PortfolioAlbumId == galleryId && x.UserId == userId);
+			.Include(x => x.PortfolioAlbum)
+			.FirstOrDefaultAsync(x =>
+				x.PortfolioAlbumId == galleryId &&
+				x.UserId == userId &&
+				!x.PortfolioAlbum.IsDeleted);
 
 		if (access == null)
 			return false;
@@ -732,7 +762,9 @@ public class ClientGalleryService : IClientGalleryService
 
 		await using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
-		var album = await _dbContext.PortfolioAlbums.FirstOrDefaultAsync(x => x.Id == galleryId);
+		var album = await _dbContext.PortfolioAlbums
+			.FirstOrDefaultAsync(x => x.Id == galleryId && !x.IsDeleted);
+
 		if (album == null)
 			return null;
 
@@ -751,9 +783,12 @@ public class ClientGalleryService : IClientGalleryService
 			CancellationToken.None);
 
 		var nextDisplayOrder = await _dbContext.PortfolioImages
-			.Where(x => x.PortfolioAlbumId == galleryId)
+			.Where(x => x.PortfolioAlbumId == galleryId && !x.IsDeleted)
 			.Select(x => (int?)x.DisplayOrder)
 			.MaxAsync() ?? 0;
+
+		var hasActiveImages = await _dbContext.PortfolioImages
+			.AnyAsync(x => x.PortfolioAlbumId == galleryId && !x.IsDeleted);
 
 		var photo = new PortfolioImage
 		{
@@ -763,7 +798,7 @@ public class ClientGalleryService : IClientGalleryService
 			AltText = string.IsNullOrWhiteSpace(originalFileNameWithoutExtension) ? null : originalFileNameWithoutExtension.Trim(),
 			Caption = null,
 			DisplayOrder = nextDisplayOrder + 1,
-			IsCover = false,
+			IsCover = !hasActiveImages,
 			IsPublished = true,
 			IsDeleted = false,
 			DeletedAtUtc = null
@@ -771,7 +806,7 @@ public class ClientGalleryService : IClientGalleryService
 
 		_dbContext.PortfolioImages.Add(photo);
 
-		if (string.IsNullOrWhiteSpace(album.CoverImageUrl))
+		if (string.IsNullOrWhiteSpace(album.CoverImageUrl) || !hasActiveImages)
 		{
 			album.CoverImageUrl = savedPath;
 			photo.IsCover = true;
@@ -807,7 +842,11 @@ public class ClientGalleryService : IClientGalleryService
 		var photo = await _dbContext.PortfolioImages
 			.Include(x => x.PortfolioAlbum)
 				.ThenInclude(x => x.Images)
-			.FirstOrDefaultAsync(x => x.Id == photoId && x.PortfolioAlbumId == galleryId);
+			.FirstOrDefaultAsync(x =>
+				x.Id == photoId &&
+				x.PortfolioAlbumId == galleryId &&
+				!x.IsDeleted &&
+				!x.PortfolioAlbum!.IsDeleted);
 
 		if (photo == null)
 			return null;
@@ -825,7 +864,7 @@ public class ClientGalleryService : IClientGalleryService
 
 		if (request.IsCover == true && photo.PortfolioAlbum != null)
 		{
-			foreach (var image in photo.PortfolioAlbum.Images)
+			foreach (var image in photo.PortfolioAlbum.Images.Where(x => !x.IsDeleted))
 			{
 				image.IsCover = image.Id == photo.Id;
 			}
@@ -852,12 +891,12 @@ public class ClientGalleryService : IClientGalleryService
 
 		var album = await _dbContext.PortfolioAlbums
 			.Include(x => x.Images)
-			.FirstOrDefaultAsync(x => x.Id == galleryId);
+			.FirstOrDefaultAsync(x => x.Id == galleryId && !x.IsDeleted);
 
 		if (album == null)
 			return false;
 
-		var photo = album.Images.FirstOrDefault(x => x.Id == photoId);
+		var photo = album.Images.FirstOrDefault(x => x.Id == photoId && !x.IsDeleted);
 		if (photo == null)
 			return false;
 
@@ -906,19 +945,20 @@ public class ClientGalleryService : IClientGalleryService
 
 		var album = await _dbContext.PortfolioAlbums
 			.Include(x => x.Images)
-			.FirstOrDefaultAsync(x => x.Id == galleryId);
+			.FirstOrDefaultAsync(x => x.Id == galleryId && !x.IsDeleted);
 
 		if (album == null)
 			return false;
 
 		var matchingPhoto = album.Images.FirstOrDefault(x =>
-			string.Equals(x.ThumbnailUrl, coverImageUrl, StringComparison.OrdinalIgnoreCase) ||
-			string.Equals(x.ImageUrl, coverImageUrl, StringComparison.OrdinalIgnoreCase));
+			!x.IsDeleted &&
+			(string.Equals(x.ThumbnailUrl, coverImageUrl, StringComparison.OrdinalIgnoreCase) ||
+			 string.Equals(x.ImageUrl, coverImageUrl, StringComparison.OrdinalIgnoreCase)));
 
 		if (matchingPhoto == null)
 			return false;
 
-		foreach (var image in album.Images)
+		foreach (var image in album.Images.Where(x => !x.IsDeleted))
 		{
 			image.IsCover = image.Id == matchingPhoto.Id;
 		}
@@ -940,8 +980,14 @@ public class ClientGalleryService : IClientGalleryService
 	{
 		await using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
+		var albumExists = await _dbContext.PortfolioAlbums
+			.AnyAsync(x => x.Id == galleryId && !x.IsDeleted);
+
+		if (!albumExists)
+			return false;
+
 		var photos = await _dbContext.PortfolioImages
-			.Where(x => x.PortfolioAlbumId == galleryId)
+			.Where(x => x.PortfolioAlbumId == galleryId && !x.IsDeleted)
 			.ToListAsync();
 
 		if (photos.Count == 0)
@@ -987,6 +1033,7 @@ public class ClientGalleryService : IClientGalleryService
 			.Where(x =>
 				x.GalleryType == GalleryType.ClientPrintUpload &&
 				x.IsUserUploaded &&
+				!x.IsDeleted &&
 				x.ExpiresAtUtc != null &&
 				x.ExpiresAtUtc < now &&
 				x.UserGalleryStatus != UserClientGalleryStatus.Expired)
@@ -1021,6 +1068,7 @@ public class ClientGalleryService : IClientGalleryService
 			.Where(x =>
 				x.GalleryType == GalleryType.ClientPrintUpload &&
 				x.IsUserUploaded &&
+				!x.IsDeleted &&
 				x.ExpiresAtUtc != null &&
 				x.ExpiresAtUtc < deleteBeforeUtc)
 			.ToListAsync(cancellationToken);
@@ -1119,12 +1167,13 @@ public class ClientGalleryService : IClientGalleryService
 	private async Task<int> EnsureClientAlbumsCategoryAsync()
 	{
 		var existing = await _dbContext.PortfolioCategories
-			.FirstOrDefaultAsync(x => x.Key == "client-galleries");
+			.FirstOrDefaultAsync(x => x.Key == "client-galleries" && !x.IsDeleted);
 
 		if (existing != null)
 			return existing.Id;
 
 		var maxOrder = await _dbContext.PortfolioCategories
+			.Where(x => !x.IsDeleted)
 			.Select(x => (int?)x.DisplayOrder)
 			.MaxAsync() ?? 0;
 
@@ -1151,7 +1200,7 @@ public class ClientGalleryService : IClientGalleryService
 		var slug = baseSlug;
 		var index = 2;
 
-		while (await _dbContext.PortfolioAlbums.AnyAsync(x => x.Slug == slug && x.Id != currentAlbumId))
+		while (await _dbContext.PortfolioAlbums.AnyAsync(x => x.Slug == slug && x.Id != currentAlbumId && !x.IsDeleted))
 		{
 			slug = $"{baseSlug}-{index}";
 			index++;
@@ -1325,7 +1374,7 @@ public class ClientGalleryService : IClientGalleryService
 				})
 				.ToList(),
 			Photos = album.Images
-				.Where(x => x.IsPublished || isAdminView)
+				.Where(x => !x.IsDeleted && (x.IsPublished || isAdminView))
 				.OrderBy(x => x.DisplayOrder)
 				.ThenBy(x => x.Id)
 				.Select(x => MapPhotoDto(x, canDownload, album.Id))

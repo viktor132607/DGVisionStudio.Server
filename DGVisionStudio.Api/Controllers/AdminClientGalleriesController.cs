@@ -61,6 +61,9 @@ public class AdminClientGalleriesController : ControllerBase
 	[HttpGet("{galleryId:int}")]
 	public async Task<IActionResult> GetGalleryById([FromRoute] int galleryId)
 	{
+		if (galleryId <= 0)
+			return BadRequest(new { message = "Invalid gallery id." });
+
 		var gallery = await _clientGalleryService.GetGalleryByIdAsync(galleryId);
 		if (gallery == null)
 			return NotFound(new { message = "Gallery not found." });
@@ -73,6 +76,9 @@ public class AdminClientGalleriesController : ControllerBase
 		[FromRoute] int galleryId,
 		[FromRoute] int photoId)
 	{
+		if (galleryId <= 0 || photoId <= 0)
+			return BadRequest(new { message = "Invalid gallery or photo id." });
+
 		var result = await _clientGalleryService.OpenPhotoDownloadAsync(
 			galleryId,
 			photoId,
@@ -117,6 +123,9 @@ public class AdminClientGalleriesController : ControllerBase
 	[HttpPost]
 	public async Task<IActionResult> CreateGallery([FromBody] AdminCreateClientGalleryRequest request)
 	{
+		if (request == null)
+			return BadRequest(new { message = "Request body is required." });
+
 		if (string.IsNullOrWhiteSpace(request.Title))
 			return BadRequest(new { message = "Title is required." });
 
@@ -152,6 +161,12 @@ public class AdminClientGalleriesController : ControllerBase
 		[FromRoute] int galleryId,
 		[FromBody] AdminUpdateClientGalleryRequest request)
 	{
+		if (galleryId <= 0)
+			return BadRequest(new { message = "Invalid gallery id." });
+
+		if (request == null)
+			return BadRequest(new { message = "Request body is required." });
+
 		if (string.IsNullOrWhiteSpace(request.Title))
 			return BadRequest(new { message = "Title is required." });
 
@@ -185,6 +200,9 @@ public class AdminClientGalleriesController : ControllerBase
 	[HttpDelete("{galleryId:int}")]
 	public async Task<IActionResult> DeleteGallery([FromRoute] int galleryId)
 	{
+		if (galleryId <= 0)
+			return BadRequest(new { message = "Invalid gallery id." });
+
 		var oldGallery = await _clientGalleryService.GetGalleryByIdAsync(galleryId);
 
 		var deleted = await _clientGalleryService.DeleteGalleryAsync(galleryId);
@@ -210,6 +228,13 @@ public class AdminClientGalleriesController : ControllerBase
 	[HttpGet("{galleryId:int}/access")]
 	public async Task<IActionResult> GetGalleryAccesses([FromRoute] int galleryId)
 	{
+		if (galleryId <= 0)
+			return BadRequest(new { message = "Invalid gallery id." });
+
+		var gallery = await _clientGalleryService.GetGalleryByIdAsync(galleryId);
+		if (gallery == null)
+			return NotFound(new { message = "Gallery not found." });
+
 		var accesses = await _clientGalleryService.GetGalleryAccessesAsync(galleryId);
 		return Ok(accesses);
 	}
@@ -219,6 +244,12 @@ public class AdminClientGalleriesController : ControllerBase
 		[FromRoute] int galleryId,
 		[FromBody] GrantGalleryAccessRequest request)
 	{
+		if (galleryId <= 0)
+			return BadRequest(new { message = "Invalid gallery id." });
+
+		if (request == null)
+			return BadRequest(new { message = "Request body is required." });
+
 		if (string.IsNullOrWhiteSpace(request.UserEmail))
 			return BadRequest(new { message = "User email is required." });
 
@@ -252,8 +283,14 @@ public class AdminClientGalleriesController : ControllerBase
 		[FromRoute] string userId,
 		[FromBody] UpdateGalleryAccessRequest request)
 	{
+		if (galleryId <= 0)
+			return BadRequest(new { message = "Invalid gallery id." });
+
 		if (string.IsNullOrWhiteSpace(userId))
 			return BadRequest(new { message = "User id is required." });
+
+		if (request == null)
+			return BadRequest(new { message = "Request body is required." });
 
 		var oldAccesses = await _clientGalleryService.GetGalleryAccessesAsync(galleryId);
 		var oldAccess = oldAccesses.FirstOrDefault(x => x.UserId == userId);
@@ -287,6 +324,9 @@ public class AdminClientGalleriesController : ControllerBase
 		[FromRoute] int galleryId,
 		[FromRoute] string userId)
 	{
+		if (galleryId <= 0)
+			return BadRequest(new { message = "Invalid gallery id." });
+
 		if (string.IsNullOrWhiteSpace(userId))
 			return BadRequest(new { message = "User id is required." });
 
@@ -321,6 +361,9 @@ public class AdminClientGalleriesController : ControllerBase
 		[FromRoute] int galleryId,
 		IFormFile file)
 	{
+		if (galleryId <= 0)
+			return BadRequest(new { message = "Invalid gallery id." });
+
 		if (file == null || file.Length == 0)
 			return BadRequest(new { message = "File is required." });
 
@@ -367,6 +410,12 @@ public class AdminClientGalleriesController : ControllerBase
 		[FromRoute] int photoId,
 		[FromBody] UpdateClientPhotoRequest request)
 	{
+		if (galleryId <= 0 || photoId <= 0)
+			return BadRequest(new { message = "Invalid gallery or photo id." });
+
+		if (request == null)
+			return BadRequest(new { message = "Request body is required." });
+
 		var oldGallery = await _clientGalleryService.GetGalleryByIdAsync(galleryId);
 		var oldPhoto = oldGallery?.Photos.FirstOrDefault(x => x.Id == photoId);
 
@@ -398,6 +447,9 @@ public class AdminClientGalleriesController : ControllerBase
 		[FromRoute] int galleryId,
 		[FromRoute] int photoId)
 	{
+		if (galleryId <= 0 || photoId <= 0)
+			return BadRequest(new { message = "Invalid gallery or photo id." });
+
 		var oldGallery = await _clientGalleryService.GetGalleryByIdAsync(galleryId);
 		var oldPhoto = oldGallery?.Photos.FirstOrDefault(x => x.Id == photoId);
 
@@ -427,6 +479,12 @@ public class AdminClientGalleriesController : ControllerBase
 		[FromRoute] int galleryId,
 		[FromBody] SetGalleryCoverRequest request)
 	{
+		if (galleryId <= 0)
+			return BadRequest(new { message = "Invalid gallery id." });
+
+		if (request == null)
+			return BadRequest(new { message = "Request body is required." });
+
 		if (string.IsNullOrWhiteSpace(request.CoverImageUrl))
 			return BadRequest(new { message = "Cover image url is required." });
 
@@ -458,6 +516,12 @@ public class AdminClientGalleriesController : ControllerBase
 		[FromRoute] int galleryId,
 		[FromBody] ReorderGalleryPhotosRequest request)
 	{
+		if (galleryId <= 0)
+			return BadRequest(new { message = "Invalid gallery id." });
+
+		if (request == null)
+			return BadRequest(new { message = "Request body is required." });
+
 		if (request.OrderedPhotoIds == null || request.OrderedPhotoIds.Count == 0)
 			return BadRequest(new { message = "Ordered photo ids are required." });
 
