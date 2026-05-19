@@ -3,6 +3,7 @@ using DGVisionStudio.Application.Interfaces;
 using DGVisionStudio.Domain.Entities;
 using DGVisionStudio.Infrastructure.Data;
 using DGVisionStudio.Infrastructure.Services;
+using DGVisionStudio.Infrastructure.Services.ClientGalleries;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
@@ -56,8 +57,19 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
-builder.Services.AddScoped<IClientGalleryService, ClientGalleryService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+
+builder.Services.AddScoped<IClientGalleryService, ClientGalleryService>();
+builder.Services.AddScoped<IClientGalleryAdminService, ClientGalleryAdminService>();
+builder.Services.AddScoped<IClientGalleryUserService, ClientGalleryUserService>();
+builder.Services.AddScoped<IClientGalleryAccessService, ClientGalleryAccessService>();
+builder.Services.AddScoped<IClientGalleryPhotoService, ClientGalleryPhotoService>();
+builder.Services.AddScoped<IClientGalleryExpiryService, ClientGalleryExpiryService>();
+
+builder.Services.AddScoped<ClientGalleryMapper>();
+builder.Services.AddScoped<ClientGalleryUploadValidator>();
+builder.Services.AddScoped<ClientGalleryNamingService>();
+
 builder.Services.AddHostedService<ExpiredGalleryCleanupService>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>

@@ -137,13 +137,13 @@ public class ClientGalleriesController : ControllerBase
 		var album = await _dbContext.PortfolioAlbums
 			.AsNoTracking()
 			.Include(x => x.Images)
-			.FirstOrDefaultAsync(x => x.Id == galleryId && x.AllowClientAccess);
+			.FirstOrDefaultAsync(x => x.Id == galleryId && x.AllowClientAccess && !x.IsDeleted);
 
 		if (album == null)
 			return NotFound();
 
 		var photos = album.Images
-			.Where(x => x.IsPublished && !string.IsNullOrWhiteSpace(x.ImageUrl))
+			.Where(x => x.IsPublished && !x.IsDeleted && !string.IsNullOrWhiteSpace(x.ImageUrl))
 			.OrderBy(x => x.DisplayOrder)
 			.ThenBy(x => x.Id)
 			.ToList();

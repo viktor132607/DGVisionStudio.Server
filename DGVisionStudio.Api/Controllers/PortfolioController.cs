@@ -34,6 +34,7 @@ public class PortfolioController : ControllerBase
 			.Include(x => x.PortfolioCategory)
 			.Where(x =>
 				x.IsPublished &&
+				!x.IsUserUploaded &&
 				x.PortfolioCategory != null &&
 				x.PortfolioCategory.IsActive)
 			.AsQueryable();
@@ -59,6 +60,7 @@ public class PortfolioController : ControllerBase
 			.FirstOrDefaultAsync(x =>
 				x.Slug == slug &&
 				x.IsPublished &&
+				!x.IsUserUploaded &&
 				x.PortfolioCategory != null &&
 				x.PortfolioCategory.IsActive);
 
@@ -75,6 +77,7 @@ public class PortfolioController : ControllerBase
 				x.IsPublished &&
 				x.PortfolioAlbum != null &&
 				x.PortfolioAlbum.IsPublished &&
+				!x.PortfolioAlbum.IsUserUploaded &&
 				x.PortfolioAlbum.PortfolioCategory != null &&
 				x.PortfolioAlbum.PortfolioCategory.IsActive)
 			.AsQueryable();
