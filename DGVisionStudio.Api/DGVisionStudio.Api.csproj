@@ -4,7 +4,9 @@
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
 	</PropertyGroup>
+
 	<ItemGroup>
+		<PackageReference Include="AWSSDK.S3" Version="4.*" />
 		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.5">
 			<PrivateAssets>all</PrivateAssets>
@@ -15,6 +17,7 @@
 		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
 		<PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.5" />
 	</ItemGroup>
+
 	<ItemGroup>
 		<ProjectReference Include="..\DGVisionStudio.Domain\DGVisionStudio.Domain.csproj" />
 		<ProjectReference Include="..\DGVisionStudio.Infrastructure\DGVisionStudio.Infrastructure.csproj" />

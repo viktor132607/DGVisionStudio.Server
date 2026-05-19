@@ -56,7 +56,18 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddScoped<IEmailService, EmailService>();
-builder.Services.AddScoped<IFileStorageService, FileStorageService>();
+
+var storageProvider = builder.Configuration["Storage:Provider"];
+
+if (string.Equals(storageProvider, "R2", StringComparison.OrdinalIgnoreCase))
+{
+	builder.Services.AddScoped<IFileStorageService, R2FileStorageService>();
+}
+else
+{
+	builder.Services.AddScoped<IFileStorageService, FileStorageService>();
+}
+
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 
 builder.Services.AddScoped<IClientGalleryService, ClientGalleryService>();
@@ -212,10 +223,14 @@ if (string.IsNullOrWhiteSpace(webRootPath))
 	webRootPath = Path.Combine(app.Environment.ContentRootPath, "wwwroot");
 }
 
-Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "portfolio"));
-Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "client-galleries"));
-Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "client-galleries", "previews"));
-Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "client-galleries", "originals"));
+if (!string.Equals(storageProvider, "R2", StringComparison.OrdinalIgnoreCase))
+{
+	Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "portfolio"));
+	Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "client-galleries"));
+	Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "client-galleries", "previews"));
+	Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "client-galleries", "originals"));
+}
+
 Directory.CreateDirectory(Path.Combine(app.Environment.ContentRootPath, "logs"));
 
 app.UseStaticFiles();
