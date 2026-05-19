@@ -40,6 +40,7 @@ public class ClientGalleryNamingService
 
 		_dbContext.PortfolioCategories.Add(category);
 		await _dbContext.SaveChangesAsync();
+
 		return category.Id;
 	}
 
@@ -49,7 +50,11 @@ public class ClientGalleryNamingService
 		var slug = baseSlug;
 		var index = 2;
 
-		while (await _dbContext.PortfolioAlbums.AnyAsync(x => x.Slug == slug && x.Id != currentAlbumId && !x.IsDeleted))
+		while (await _dbContext.PortfolioAlbums
+				   .IgnoreQueryFilters()
+				   .AnyAsync(x =>
+					   x.Slug == slug &&
+					   (!currentAlbumId.HasValue || x.Id != currentAlbumId.Value)))
 		{
 			slug = $"{baseSlug}-{index}";
 			index++;
@@ -60,12 +65,15 @@ public class ClientGalleryNamingService
 
 	public string Slugify(string value)
 	{
-		if (string.IsNullOrWhiteSpace(value)) return Guid.NewGuid().ToString("N");
+		if (string.IsNullOrWhiteSpace(value))
+			return Guid.NewGuid().ToString("N");
 
 		var slug = value.Trim().ToLowerInvariant();
 		slug = Regex.Replace(slug, @"[^a-z0-9а-я]+", "-");
 		slug = Regex.Replace(slug, @"-+", "-").Trim('-');
 
-		return string.IsNullOrWhiteSpace(slug) ? Guid.NewGuid().ToString("N") : slug;
+		return string.IsNullOrWhiteSpace(slug)
+			? Guid.NewGuid().ToString("N")
+			: slug;
 	}
 }
