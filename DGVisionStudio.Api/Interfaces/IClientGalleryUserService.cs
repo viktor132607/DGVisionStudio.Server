@@ -9,5 +9,6 @@ public interface IClientGalleryUserService
 	Task<ClientGalleryDetailsDto?> GetGalleryDetailsAsync(int galleryId, string userId);
 	Task<int?> CreateUserGalleryAsync(string userId, CreateUserClientGalleryRequest request);
 	Task<ClientPhotoDto?> UploadUserGalleryPhotoAsync(int galleryId, string userId, IFormFile file);
+	Task<bool> DeleteUserGalleryAsync(int galleryId, string userId);
 	Task<bool> UserCanAccessGalleryAsync(int galleryId, string userId, bool requireDownload);
 }
