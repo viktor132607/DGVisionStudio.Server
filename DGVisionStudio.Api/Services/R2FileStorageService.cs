@@ -24,6 +24,7 @@ public class R2FileStorageService : IFileStorageService
 		var accessKeyId = configuration["R2:AccessKeyId"];
 		var secretAccessKey = configuration["R2:SecretAccessKey"];
 		var serviceUrl = configuration["R2:ServiceUrl"];
+
 		_bucketName = configuration["R2:BucketName"] ?? "";
 		_publicBaseUrl = (configuration["R2:PublicBaseUrl"] ?? "").TrimEnd('/');
 
@@ -67,7 +68,7 @@ public class R2FileStorageService : IFileStorageService
 
 		await PutObjectAsync(fileStream, key, GetContentType(extension), cancellationToken);
 
-		return "/" + key;
+		return BuildPublicUrl(key);
 	}
 
 	public async Task<string> SaveImageAsync(
@@ -130,7 +131,7 @@ public class R2FileStorageService : IFileStorageService
 
 		await PutObjectAsync(output, key, GetContentType(extension), cancellationToken);
 
-		return "/" + key;
+		return BuildPublicUrl(key);
 	}
 
 	public async Task DeleteFileAsync(
@@ -160,7 +161,7 @@ public class R2FileStorageService : IFileStorageService
 
 		try
 		{
-			var response = await _s3Client.GetObjectAsync(new GetObjectRequest
+			using var response = await _s3Client.GetObjectAsync(new GetObjectRequest
 			{
 				BucketName = _bucketName,
 				Key = key
@@ -214,9 +215,13 @@ public class R2FileStorageService : IFileStorageService
 			BucketName = _bucketName,
 			Key = key,
 			InputStream = stream,
-			ContentType = contentType,
-			DisablePayloadSigning = true
+			ContentType = contentType
 		}, cancellationToken);
+	}
+
+	private string BuildPublicUrl(string key)
+	{
+		return $"{_publicBaseUrl}/{key.TrimStart('/')}";
 	}
 
 	private static string BuildObjectKey(string folderPath, string fileName)
