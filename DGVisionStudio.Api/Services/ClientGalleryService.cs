@@ -35,6 +35,7 @@ public class ClientGalleryService : IClientGalleryService
 	public Task<bool> DeleteGalleryAsync(int galleryId) => _adminService.DeleteGalleryAsync(galleryId);
 	public Task<int?> CreateUserGalleryAsync(string userId, CreateUserClientGalleryRequest request) => _userService.CreateUserGalleryAsync(userId, request);
 	public Task<ClientPhotoDto?> UploadUserGalleryPhotoAsync(int galleryId, string userId, IFormFile file) => _userService.UploadUserGalleryPhotoAsync(galleryId, userId, file);
+	public Task<bool> DeleteUserGalleryAsync(int galleryId, string userId) => _userService.DeleteUserGalleryAsync(galleryId, userId);
 	public Task<bool> UserCanAccessGalleryAsync(int galleryId, string userId, bool requireDownload) => _userService.UserCanAccessGalleryAsync(galleryId, userId, requireDownload);
 	public Task<(Stream Stream, string ContentType, string FileName)?> OpenPhotoDownloadAsync(int galleryId, int photoId, string userId, bool isAdmin) => _photoService.OpenPhotoDownloadAsync(galleryId, photoId, userId, isAdmin);
 	public Task<List<GalleryUserAccessDto>> GetGalleryAccessesAsync(int galleryId) => _accessService.GetGalleryAccessesAsync(galleryId);
