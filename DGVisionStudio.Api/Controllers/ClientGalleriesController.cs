@@ -98,6 +98,20 @@ public class ClientGalleriesController : ControllerBase
 		return Ok(photo);
 	}
 
+	[HttpDelete("{galleryId:int}")]
+	public async Task<IActionResult> DeleteMyGallery([FromRoute] int galleryId)
+	{
+		var user = await _userManager.GetUserAsync(User);
+		if (user == null)
+			return Unauthorized(new { message = "User not authenticated." });
+
+		var deleted = await _clientGalleryService.DeleteUserGalleryAsync(galleryId, user.Id);
+		if (!deleted)
+			return NotFound(new { message = "Gallery not found or access denied." });
+
+		return Ok(new { message = "Gallery deleted successfully." });
+	}
+
 	[HttpGet("{galleryId:int}/photos/{photoId:int}/download")]
 	public async Task<IActionResult> DownloadPhoto([FromRoute] int galleryId, [FromRoute] int photoId)
 	{
