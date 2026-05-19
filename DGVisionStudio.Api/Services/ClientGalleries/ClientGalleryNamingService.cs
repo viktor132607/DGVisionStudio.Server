@@ -17,9 +17,27 @@ public class ClientGalleryNamingService
 	public async Task<int> EnsureClientAlbumsCategoryAsync()
 	{
 		var existing = await _dbContext.PortfolioCategories
-			.FirstOrDefaultAsync(x => x.Key == "client-galleries" && !x.IsDeleted);
+			.IgnoreQueryFilters()
+			.FirstOrDefaultAsync(x => x.Key == "client-galleries");
 
-		if (existing != null) return existing.Id;
+		if (existing != null)
+		{
+			if (existing.IsDeleted)
+			{
+				existing.IsDeleted = false;
+				existing.DeletedAtUtc = null;
+			}
+
+			existing.Name = string.IsNullOrWhiteSpace(existing.Name) ? "Клиентски албуми" : existing.Name;
+			existing.NameEn = string.IsNullOrWhiteSpace(existing.NameEn) ? "Client Galleries" : existing.NameEn;
+			existing.Description = string.IsNullOrWhiteSpace(existing.Description)
+				? "Albums created from the client gallery admin."
+				: existing.Description;
+			existing.IsActive = false;
+
+			await _dbContext.SaveChangesAsync();
+			return existing.Id;
+		}
 
 		var maxOrder = await _dbContext.PortfolioCategories
 			.Where(x => !x.IsDeleted)
