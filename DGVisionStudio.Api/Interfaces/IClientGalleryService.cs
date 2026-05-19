@@ -14,6 +14,7 @@ public interface IClientGalleryService
 	Task<bool> DeleteGalleryAsync(int galleryId);
 	Task<int?> CreateUserGalleryAsync(string userId, CreateUserClientGalleryRequest request);
 	Task<ClientPhotoDto?> UploadUserGalleryPhotoAsync(int galleryId, string userId, IFormFile file);
+	Task<bool> DeleteUserGalleryAsync(int galleryId, string userId);
 	Task<bool> UserCanAccessGalleryAsync(int galleryId, string userId, bool requireDownload);
 	Task<(Stream Stream, string ContentType, string FileName)?> OpenPhotoDownloadAsync(int galleryId, int photoId, string userId, bool isAdmin);
 	Task<List<GalleryUserAccessDto>> GetGalleryAccessesAsync(int galleryId);
