@@ -21,12 +21,12 @@ public class R2FileStorageService : IFileStorageService
 
 	public R2FileStorageService(IConfiguration configuration)
 	{
-		var accessKeyId = configuration["R2:AccessKeyId"];
-		var secretAccessKey = configuration["R2:SecretAccessKey"];
-		var serviceUrl = configuration["R2:ServiceUrl"];
+		var accessKeyId = configuration["R2:AccessKeyId"]?.Trim();
+		var secretAccessKey = configuration["R2:SecretAccessKey"]?.Trim();
+		var serviceUrl = configuration["R2:ServiceUrl"]?.Trim();
 
-		_bucketName = configuration["R2:BucketName"] ?? "";
-		_publicBaseUrl = (configuration["R2:PublicBaseUrl"] ?? "").TrimEnd('/');
+		_bucketName = configuration["R2:BucketName"]?.Trim() ?? "";
+		_publicBaseUrl = (configuration["R2:PublicBaseUrl"] ?? "").Trim().TrimEnd('/');
 
 		if (string.IsNullOrWhiteSpace(accessKeyId))
 			throw new InvalidOperationException("R2:AccessKeyId is missing.");
