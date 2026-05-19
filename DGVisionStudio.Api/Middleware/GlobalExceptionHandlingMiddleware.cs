@@ -59,7 +59,7 @@ public class GlobalExceptionHandlingMiddleware
 			StatusCode = statusCode,
 			Message = GetPublicMessage(statusCode),
 			TraceId = context.TraceIdentifier,
-			Details = _environment.IsDevelopment() ? exception.Message : null
+			Details = exception.Message
 		};
 
 		var json = JsonSerializer.Serialize(response, new JsonSerializerOptions
