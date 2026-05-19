@@ -283,6 +283,55 @@ public class ClientGalleryUserService : IClientGalleryUserService
 		return _mapper.MapPhotoDto(photo, true, galleryId);
 	}
 
+	public async Task<bool> DeleteUserGalleryAsync(int galleryId, string userId)
+	{
+		var now = DateTime.UtcNow;
+
+		var album = await _dbContext.PortfolioAlbums
+			.Include(x => x.Images)
+			.FirstOrDefaultAsync(x =>
+				x.Id == galleryId &&
+				x.GalleryType == GalleryType.ClientPrintUpload &&
+				x.IsUserUploaded &&
+				x.OwnerUserId == userId &&
+				x.AllowClientAccess &&
+				!x.IsDeleted);
+
+		if (album == null)
+			return false;
+
+		foreach (var photo in album.Images.Where(x => !x.IsDeleted).ToList())
+		{
+			if (!string.IsNullOrWhiteSpace(photo.ImageUrl))
+			{
+				try
+				{
+					await _fileStorageService.DeleteFileAsync(photo.ImageUrl);
+				}
+				catch (Exception ex)
+				{
+					_logger.LogWarning(ex, "Failed to delete uploaded user gallery photo from storage. GalleryId: {GalleryId}, PhotoId: {PhotoId}, ImageUrl: {ImageUrl}", galleryId, photo.Id, photo.ImageUrl);
+				}
+			}
+
+			photo.IsDeleted = true;
+			photo.DeletedAtUtc = now;
+			photo.IsPublished = false;
+		}
+
+		album.IsDeleted = true;
+		album.DeletedAtUtc = now;
+		album.IsPublished = false;
+		album.AllowClientAccess = false;
+		album.CoverImageUrl = null;
+
+		await _dbContext.SaveChangesAsync();
+
+		_logger.LogInformation("User uploaded gallery deleted by owner. GalleryId: {GalleryId}, OwnerUserId: {OwnerUserId}", galleryId, userId);
+
+		return true;
+	}
+
 	public async Task<bool> UserCanAccessGalleryAsync(int galleryId, string userId, bool requireDownload)
 	{
 		var now = DateTime.UtcNow;
