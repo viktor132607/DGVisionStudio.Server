@@ -210,13 +210,28 @@ public class R2FileStorageService : IFileStorageService
 		string contentType,
 		CancellationToken cancellationToken)
 	{
-		await _s3Client.PutObjectAsync(new PutObjectRequest
+		try
 		{
-			BucketName = _bucketName,
-			Key = key,
-			InputStream = stream,
-			ContentType = contentType
-		}, cancellationToken);
+			await _s3Client.PutObjectAsync(new PutObjectRequest
+			{
+				BucketName = _bucketName,
+				Key = key,
+				InputStream = stream,
+				ContentType = contentType
+			}, cancellationToken);
+		}
+		catch (AmazonS3Exception ex)
+		{
+			throw new InvalidOperationException(
+				$"R2 upload failed. " +
+				$"StatusCode: {(int)ex.StatusCode} {ex.StatusCode}. " +
+				$"ErrorCode: {ex.ErrorCode}. " +
+				$"AmazonMessage: {ex.Message}. " +
+				$"Bucket: {_bucketName}. " +
+				$"Key: {key}. " +
+				$"ContentType: {contentType}.",
+				ex);
+		}
 	}
 
 	private string BuildPublicUrl(string key)
