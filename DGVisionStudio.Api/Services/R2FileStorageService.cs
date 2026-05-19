@@ -48,7 +48,7 @@ public class R2FileStorageService : IFileStorageService
 		{
 			ServiceURL = serviceUrl,
 			ForcePathStyle = true,
-			AuthenticationRegion = "auto",
+			AuthenticationRegion = "us-east-1",
 			RegionEndpoint = RegionEndpoint.USEast1
 		};
 
