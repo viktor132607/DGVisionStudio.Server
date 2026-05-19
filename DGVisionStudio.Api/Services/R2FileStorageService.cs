@@ -1,5 +1,4 @@
-﻿using Amazon;
-using Amazon.Runtime;
+﻿using Amazon.Runtime;
 using Amazon.S3;
 using Amazon.S3.Model;
 using DGVisionStudio.Application.Interfaces;
@@ -49,8 +48,7 @@ public class R2FileStorageService : IFileStorageService
 		{
 			ServiceURL = serviceUrl,
 			ForcePathStyle = true,
-			AuthenticationRegion = "us-east-1",
-			RegionEndpoint = RegionEndpoint.USEast1
+			AuthenticationRegion = "auto"
 		};
 
 		_s3Client = new AmazonS3Client(credentials, config);
