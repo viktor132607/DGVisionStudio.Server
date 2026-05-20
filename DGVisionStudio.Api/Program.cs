@@ -233,6 +233,24 @@ using (var scope = app.Services.CreateScope())
 {
 	var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 	await db.Database.MigrateAsync();
+
+	await db.Database.ExecuteSqlRawAsync("""
+		UPDATE "PortfolioCategories"
+		SET "IsDeleted" = FALSE, "DeletedAtUtc" = NULL
+		WHERE "Key" IN (
+			'portrait', 'product', 'commercial', 'corporate', 'event', 'graduate', 'birthday',
+			'christmas', 'baptism', 'wedding', 'family', 'maternity', 'landscape'
+		);
+
+		UPDATE "PortfolioAlbums"
+		SET "IsDeleted" = FALSE, "DeletedAtUtc" = NULL
+		WHERE "Slug" IN (
+			'portrait-winter', 'portrait-spring', 'portrait-theodora', 'event-bulgare',
+			'graduate-azra', 'graduate-veronica', 'graduate-zara', 'graduate-yana',
+			'baptism-1', 'baptism-2', 'wedding-1', 'wedding-2', 'wedding-3', 'landscape-main'
+		);
+		""");
+
 	await AppDataSeeder.SeedAsync(scope.ServiceProvider);
 }
 
