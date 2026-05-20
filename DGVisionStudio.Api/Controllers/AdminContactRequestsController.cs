@@ -48,7 +48,7 @@ public class AdminContactRequestsController : ControllerBase
     }
 
     [HttpPut("{id:guid}/status")]
-    public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateContactRequestStatusDto dto)
+    public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateContactRequestDto dto)
     {
         var item = await _context.ContactRequests.FindAsync(id);
         if (item == null) return NotFound();
