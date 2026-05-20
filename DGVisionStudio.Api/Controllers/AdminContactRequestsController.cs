@@ -1,4 +1,5 @@
 using DGVisionStudio.Application.DTOs;
+using DGVisionStudio.Domain.Enums;
 using DGVisionStudio.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -42,6 +43,20 @@ public class AdminContactRequestsController : ControllerBase
         item.AdminComment = dto.AdminComment;
         item.IsArchived = dto.IsArchived;
         item.UpdatedAtUtc = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return Ok(item);
+    }
+
+    [HttpPut("{id:guid}/status")]
+    public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateContactRequestStatusDto dto)
+    {
+        var item = await _context.ContactRequests.FindAsync(id);
+        if (item == null) return NotFound();
+
+        item.Status = dto.Status;
+        item.IsArchived = dto.Status is ContactRequestStatus.Completed or ContactRequestStatus.Rejected;
+        item.UpdatedAtUtc = DateTime.UtcNow;
+
         await _context.SaveChangesAsync();
         return Ok(item);
     }
