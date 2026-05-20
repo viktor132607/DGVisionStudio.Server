@@ -229,9 +229,10 @@ Directory.CreateDirectory(Path.Combine(app.Environment.ContentRootPath, "logs"))
 
 app.UseStaticFiles();
 
-if (app.Environment.IsDevelopment())
+using (var scope = app.Services.CreateScope())
 {
-	using var scope = app.Services.CreateScope();
+	var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+	await db.Database.MigrateAsync();
 	await AppDataSeeder.SeedAsync(scope.ServiceProvider);
 }
 
