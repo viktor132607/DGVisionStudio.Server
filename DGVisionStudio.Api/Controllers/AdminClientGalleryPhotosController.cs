@@ -14,6 +14,7 @@ namespace DGVisionStudio.Infrastructure.Controllers;
 public class AdminClientGalleryPhotosController : ControllerBase
 {
 	private const long MaxPhotoUploadSizeBytes = 20 * 1024 * 1024;
+	private const long MaxPhotoUploadRequestSizeBytes = 25 * 1024 * 1024;
 
 	private readonly IClientGalleryService _clientGalleryService;
 	private readonly IAuditLogService _auditLogService;
@@ -78,8 +79,8 @@ public class AdminClientGalleryPhotosController : ControllerBase
 		return File(result.Value.Stream, result.Value.ContentType, result.Value.FileName);
 	}
 
-	[RequestSizeLimit(MaxPhotoUploadSizeBytes)]
-	[RequestFormLimits(MultipartBodyLengthLimit = MaxPhotoUploadSizeBytes)]
+	[RequestSizeLimit(MaxPhotoUploadRequestSizeBytes)]
+	[RequestFormLimits(MultipartBodyLengthLimit = MaxPhotoUploadRequestSizeBytes)]
 	[HttpPost("photos/upload")]
 	public async Task<IActionResult> UploadPhoto(
 		[FromRoute] int galleryId,
