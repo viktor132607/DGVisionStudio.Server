@@ -16,6 +16,8 @@ using System.Threading.RateLimiting;
 var builder = WebApplication.CreateBuilder(args);
 
 const long MaxUploadSizeBytes = 20 * 1024 * 1024;
+const int MaxFilesPerUploadRequest = 100;
+const long MaxUploadRequestBytes = MaxUploadSizeBytes * MaxFilesPerUploadRequest;
 
 Log.Logger = new LoggerConfiguration()
 	.ReadFrom.Configuration(builder.Configuration)
@@ -36,7 +38,7 @@ builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
 builder.WebHost.ConfigureKestrel(options =>
 {
-	options.Limits.MaxRequestBodySize = MaxUploadSizeBytes;
+	options.Limits.MaxRequestBodySize = MaxUploadRequestBytes;
 });
 
 builder.Services.AddControllers()
@@ -47,7 +49,7 @@ builder.Services.AddControllers()
 
 builder.Services.Configure<FormOptions>(options =>
 {
-	options.MultipartBodyLengthLimit = MaxUploadSizeBytes;
+	options.MultipartBodyLengthLimit = MaxUploadRequestBytes;
 	options.ValueLengthLimit = int.MaxValue;
 	options.MultipartHeadersLengthLimit = int.MaxValue;
 });
@@ -61,7 +63,9 @@ var storageProvider = builder.Configuration["Storage:Provider"];
 
 if (string.Equals(storageProvider, "Cloudinary", StringComparison.OrdinalIgnoreCase))
 {
-	builder.Services.AddScoped<IFileStorageService, CloudinaryFileStorageService>();
+	builder.Services.AddScoped<CloudinaryFileStorageService>();
+	builder.Services.AddScoped<FileStorageService>();
+	builder.Services.AddScoped<IFileStorageService, FallbackFileStorageService>();
 }
 else
 {
@@ -218,6 +222,13 @@ if (string.IsNullOrWhiteSpace(webRootPath))
 }
 
 if (!string.Equals(storageProvider, "Cloudinary", StringComparison.OrdinalIgnoreCase))
+{
+	Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "portfolio"));
+	Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "client-galleries"));
+	Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "client-galleries", "previews"));
+	Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "client-galleries", "originals"));
+}
+else
 {
 	Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "portfolio"));
 	Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "client-galleries"));
