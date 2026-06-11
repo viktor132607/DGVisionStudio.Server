@@ -4,7 +4,7 @@ namespace DGVisionStudio.Infrastructure.Services.ClientGalleries;
 
 public class ClientGalleryUploadValidator
 {
-	private const long MaxImageUploadSizeBytes = 10 * 1024 * 1024;
+	private const long MaxImageUploadSizeBytes = 20 * 1024 * 1024;
 
 	private static readonly Dictionary<string, string[]> AllowedImageContentTypesByExtension = new(StringComparer.OrdinalIgnoreCase)
 	{
@@ -22,7 +22,7 @@ public class ClientGalleryUploadValidator
 	public async Task ValidateUploadedImageAsync(IFormFile file)
 	{
 		if (file == null || file.Length == 0) throw new ArgumentException("File is required.");
-		if (file.Length > MaxImageUploadSizeBytes) throw new ArgumentException("File size cannot exceed 10 MB.");
+		if (file.Length > MaxImageUploadSizeBytes) throw new ArgumentException("File size cannot exceed 20 MB.");
 
 		var originalFileName = Path.GetFileName(file.FileName);
 		if (string.IsNullOrWhiteSpace(originalFileName)) throw new ArgumentException("Invalid file name.");
