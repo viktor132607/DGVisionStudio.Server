@@ -7,6 +7,7 @@ namespace DGVisionStudio.Infrastructure.Services;
 
 public class CloudinaryFileStorageService : IFileStorageService
 {
+	private const long CloudinaryMaxImageUploadSizeBytes = 10 * 1024 * 1024;
 	private static readonly HttpClient HttpClient = new();
 
 	private readonly Cloudinary _cloudinary;
@@ -63,6 +64,9 @@ public class CloudinaryFileStorageService : IFileStorageService
 
 		if (extension is not ".jpg" and not ".jpeg" and not ".png" and not ".webp")
 			throw new InvalidOperationException("Unsupported image format.");
+
+		if (fileStream.CanSeek && fileStream.Length > CloudinaryMaxImageUploadSizeBytes)
+			return BuildSkippedCloudinaryPath(folderPath, fileName);
 
 		var publicId = BuildPublicId(folderPath, Path.GetFileNameWithoutExtension(fileName));
 
@@ -168,6 +172,18 @@ public class CloudinaryFileStorageService : IFileStorageService
 		return string.IsNullOrWhiteSpace(safeFolder)
 			? $"{_folder}/{uniqueName}"
 			: $"{_folder}/{safeFolder}/{uniqueName}";
+	}
+
+	private static string BuildSkippedCloudinaryPath(string folderPath, string fileName)
+	{
+		var safeFolder = NormalizeCloudinaryFolder(folderPath);
+		var safeFileName = string.IsNullOrWhiteSpace(fileName)
+			? $"{Guid.NewGuid():N}.jpg"
+			: Path.GetFileName(fileName);
+
+		return string.IsNullOrWhiteSpace(safeFolder)
+			? safeFileName
+			: $"{safeFolder}/{safeFileName}";
 	}
 
 	private static string NormalizeCloudinaryFolder(string? value)
