@@ -21,14 +21,14 @@ public class AdminCalendarController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var items = await _context.ShootingCalendarEvents.OrderBy(x => x.StartAtUtc).ToListAsync();
+        var items = await _context.CalendarEvents.OrderBy(x => x.StartAtUtc).ToListAsync();
         return Ok(items);
     }
 
     [HttpGet("{id:int}")]
     public async Task<IActionResult> Get(int id)
     {
-        var item = await _context.ShootingCalendarEvents.FindAsync(id);
+        var item = await _context.CalendarEvents.FindAsync(id);
         return item is null ? NotFound() : Ok(item);
     }
 
@@ -38,7 +38,7 @@ public class AdminCalendarController : ControllerBase
         if (string.IsNullOrWhiteSpace(dto.Title)) return BadRequest(new { message = "Заглавието е задължително." });
         if (dto.EndAtUtc <= dto.StartAtUtc) return BadRequest(new { message = "Краят трябва да е след началото." });
 
-        var item = new ShootingCalendarEvent
+        var item = new CalendarEvent
         {
             Title = dto.Title.Trim(),
             EventType = Normalize(dto.EventType) ?? "Photoshoot",
@@ -53,7 +53,7 @@ public class AdminCalendarController : ControllerBase
             CreatedAtUtc = DateTime.UtcNow
         };
 
-        _context.ShootingCalendarEvents.Add(item);
+        _context.CalendarEvents.Add(item);
         await _context.SaveChangesAsync();
         return CreatedAtAction(nameof(Get), new { id = item.Id }, item);
     }
@@ -61,7 +61,7 @@ public class AdminCalendarController : ControllerBase
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, [FromBody] CalendarEventDto dto)
     {
-        var item = await _context.ShootingCalendarEvents.FindAsync(id);
+        var item = await _context.CalendarEvents.FindAsync(id);
         if (item is null) return NotFound();
         if (string.IsNullOrWhiteSpace(dto.Title)) return BadRequest(new { message = "Заглавието е задължително." });
         if (dto.EndAtUtc <= dto.StartAtUtc) return BadRequest(new { message = "Краят трябва да е след началото." });
@@ -85,9 +85,9 @@ public class AdminCalendarController : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var item = await _context.ShootingCalendarEvents.FindAsync(id);
+        var item = await _context.CalendarEvents.FindAsync(id);
         if (item is null) return NotFound();
-        _context.ShootingCalendarEvents.Remove(item);
+        _context.CalendarEvents.Remove(item);
         await _context.SaveChangesAsync();
         return NoContent();
     }
