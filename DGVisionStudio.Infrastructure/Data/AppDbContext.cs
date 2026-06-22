@@ -22,6 +22,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 	public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 	public DbSet<PrintRequest> PrintRequests => Set<PrintRequest>();
 	public DbSet<PrintRequestItem> PrintRequestItems => Set<PrintRequestItem>();
+	public DbSet<ShootingCalendarEvent> ShootingCalendarEvents => Set<ShootingCalendarEvent>();
 
 	protected override void OnModelCreating(ModelBuilder builder)
 	{
@@ -279,6 +280,25 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 				.WithMany()
 				.HasForeignKey(x => x.PortfolioImageId)
 				.OnDelete(DeleteBehavior.Restrict);
+		});
+
+		builder.Entity<ShootingCalendarEvent>(entity =>
+		{
+			entity.HasKey(x => x.Id);
+
+			entity.Property(x => x.Title).IsRequired().HasMaxLength(200);
+			entity.Property(x => x.EventType).HasMaxLength(40);
+			entity.Property(x => x.AssignedTo).HasMaxLength(150);
+			entity.Property(x => x.ClientName).HasMaxLength(150);
+			entity.Property(x => x.ClientPhone).HasMaxLength(50);
+			entity.Property(x => x.Location).HasMaxLength(300);
+			entity.Property(x => x.Description).HasMaxLength(2000);
+			entity.Property(x => x.Color).HasMaxLength(20);
+			entity.Property(x => x.CreatedAtUtc).HasDefaultValueSql("NOW()");
+
+			entity.HasIndex(x => x.StartAtUtc);
+			entity.HasIndex(x => x.EndAtUtc);
+			entity.HasIndex(x => x.EventType);
 		});
 	}
 }
