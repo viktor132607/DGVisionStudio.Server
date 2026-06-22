@@ -17,6 +17,8 @@ namespace DGVisionStudio.Infrastructure.Controllers;
 [Authorize(Roles = "Admin")]
 public class AdminClientGalleriesController : ControllerBase
 {
+	private static readonly HttpClient HttpClient = new();
+
 	private readonly IClientGalleryService _clientGalleryService;
 	private readonly IAuditLogService _auditLogService;
 	private readonly UserManager<ApplicationUser> _userManager;
@@ -50,70 +52,105 @@ public class AdminClientGalleriesController : ControllerBase
 	[HttpGet("download-all")]
 	public async Task<IActionResult> DownloadAllAlbums()
 	{
-		var albums = await _dbContext.PortfolioAlbums
-			.AsNoTracking()
-			.Include(x => x.PortfolioCategory)
-			.Include(x => x.Images)
-			.Where(x => !x.IsDeleted && x.PortfolioCategory != null && !x.PortfolioCategory.IsDeleted)
-			.OrderBy(x => x.PortfolioCategory!.DisplayOrder)
-			.ThenBy(x => x.DisplayOrder)
-			.ThenBy(x => x.Id)
-			.ToListAsync();
-
-		if (albums.Count == 0)
-			return NotFound(new { message = "No albums found." });
-
-		var memory = new MemoryStream();
-		var addedFiles = 0;
-
-		using (var archive = new ZipArchive(memory, ZipArchiveMode.Create, true))
+		try
 		{
-			foreach (var album in albums)
+			var albums = await _dbContext.PortfolioAlbums
+				.AsNoTracking()
+				.Include(x => x.PortfolioCategory)
+				.Include(x => x.Images)
+				.Where(x => !x.IsDeleted && x.PortfolioCategory != null && !x.PortfolioCategory.IsDeleted)
+				.OrderBy(x => x.PortfolioCategory!.DisplayOrder)
+				.ThenBy(x => x.DisplayOrder)
+				.ThenBy(x => x.Id)
+				.ToListAsync();
+
+			if (albums.Count == 0)
+				return NotFound(new { message = "Няма намерени албуми." });
+
+			var memory = new MemoryStream();
+			var addedFiles = 0;
+			var skippedFiles = 0;
+
+			using (var archive = new ZipArchive(memory, ZipArchiveMode.Create, true))
 			{
-				var categoryFolder = SafeZipSegment(album.PortfolioCategory?.Name, $"category-{album.PortfolioCategoryId}");
-				var albumFolder = $"{album.DisplayOrder:D3}-{SafeZipSegment(album.Title, $"album-{album.Id}")}";
-				var photos = album.Images
-					.Where(x => !x.IsDeleted && !string.IsNullOrWhiteSpace(x.ImageUrl))
-					.OrderBy(x => x.DisplayOrder)
-					.ThenBy(x => x.Id)
-					.ToList();
-
-				foreach (var photo in photos)
+				foreach (var album in albums)
 				{
-					var source = await _fileStorageService.OpenReadAsync(photo.ImageUrl);
-					if (source == null)
-						continue;
+					var categoryFolder = SafeZipSegment(album.PortfolioCategory?.Name, $"category-{album.PortfolioCategoryId}");
+					var albumFolder = $"{album.DisplayOrder:D3}-{SafeZipSegment(album.Title, $"album-{album.Id}")}";
+					var photos = album.Images
+						.Where(x => !x.IsDeleted && !string.IsNullOrWhiteSpace(x.ImageUrl))
+						.OrderBy(x => x.DisplayOrder)
+						.ThenBy(x => x.Id)
+						.ToList();
 
-					await using (source)
+					foreach (var photo in photos)
 					{
-						var ext = GetFileExtension(photo.ImageUrl);
-						var entryPath = $"{categoryFolder}/{albumFolder}/{photo.DisplayOrder:D3}-{photo.Id}{ext}";
-						var entry = archive.CreateEntry(entryPath, CompressionLevel.Fastest);
+						try
+						{
+							var source = await TryOpenPhotoStreamAsync(photo.ImageUrl, album.Id, photo.Id);
+							if (source == null)
+							{
+								skippedFiles++;
+								continue;
+							}
 
-						await using var entryStream = entry.Open();
-						await source.CopyToAsync(entryStream);
-						addedFiles++;
+							await using (source)
+							{
+								var ext = GetFileExtension(photo.ImageUrl);
+								var entryPath = $"{categoryFolder}/{albumFolder}/{photo.DisplayOrder:D3}-{photo.Id}{ext}";
+								var entry = archive.CreateEntry(entryPath, CompressionLevel.Fastest);
+
+								await using var entryStream = entry.Open();
+								await source.CopyToAsync(entryStream);
+								addedFiles++;
+							}
+						}
+						catch (Exception ex)
+						{
+							skippedFiles++;
+							_logger.LogWarning(
+								ex,
+								"Skipped photo while building all albums archive. AlbumId: {AlbumId}, PhotoId: {PhotoId}, ImageUrl: {ImageUrl}, TraceId: {TraceId}",
+								album.Id,
+								photo.Id,
+								photo.ImageUrl,
+								HttpContext.TraceIdentifier);
+						}
 					}
 				}
 			}
-		}
 
-		if (addedFiles == 0)
+			if (addedFiles == 0)
+			{
+				await memory.DisposeAsync();
+				return NotFound(new { message = "Не са намерени снимки за изтегляне." });
+			}
+
+			memory.Position = 0;
+
+			_logger.LogInformation(
+				"Admin downloaded all albums archive. Albums: {AlbumCount}, Photos: {PhotoCount}, Skipped: {SkippedFiles}, Admin: {Admin}, TraceId: {TraceId}",
+				albums.Count,
+				addedFiles,
+				skippedFiles,
+				User.Identity?.Name,
+				HttpContext.TraceIdentifier);
+
+			return File(memory, "application/zip", "dgvisionstudio-all-albums.zip");
+		}
+		catch (Exception ex)
 		{
-			await memory.DisposeAsync();
-			return NotFound(new { message = "No downloadable photos found." });
+			_logger.LogError(
+				ex,
+				"Failed to build all albums archive. Admin: {Admin}, TraceId: {TraceId}",
+				User.Identity?.Name,
+				HttpContext.TraceIdentifier);
+
+			return StatusCode(StatusCodes.Status500InternalServerError, new
+			{
+				message = $"Архивът не можа да бъде създаден: {ex.Message}"
+			});
 		}
-
-		memory.Position = 0;
-
-		_logger.LogInformation(
-			"Admin downloaded all albums archive. Albums: {AlbumCount}, Photos: {PhotoCount}, Admin: {Admin}, TraceId: {TraceId}",
-			albums.Count,
-			addedFiles,
-			User.Identity?.Name,
-			HttpContext.TraceIdentifier);
-
-		return File(memory, "application/zip", "dgvisionstudio-all-albums.zip");
 	}
 
 	[HttpGet("users")]
@@ -248,6 +285,64 @@ public class AdminClientGalleriesController : ControllerBase
 			null);
 
 		return Ok(new { message = "Client gallery deleted successfully." });
+	}
+
+	private async Task<Stream?> TryOpenPhotoStreamAsync(string imageUrl, int albumId, int photoId)
+	{
+		try
+		{
+			var storageStream = await _fileStorageService.OpenReadAsync(imageUrl);
+			if (storageStream != null)
+				return storageStream;
+		}
+		catch (Exception ex)
+		{
+			_logger.LogWarning(
+				ex,
+				"File storage open failed for photo. AlbumId: {AlbumId}, PhotoId: {PhotoId}, ImageUrl: {ImageUrl}, TraceId: {TraceId}",
+				albumId,
+				photoId,
+				imageUrl,
+				HttpContext.TraceIdentifier);
+		}
+
+		if (!Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) ||
+			(uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+		{
+			return null;
+		}
+
+		try
+		{
+			using var response = await HttpClient.GetAsync(uri);
+			if (!response.IsSuccessStatusCode)
+			{
+				_logger.LogWarning(
+					"HTTP fallback failed for photo. AlbumId: {AlbumId}, PhotoId: {PhotoId}, StatusCode: {StatusCode}, ImageUrl: {ImageUrl}, TraceId: {TraceId}",
+					albumId,
+					photoId,
+					(int)response.StatusCode,
+					imageUrl,
+					HttpContext.TraceIdentifier);
+
+				return null;
+			}
+
+			var bytes = await response.Content.ReadAsByteArrayAsync();
+			return bytes.Length > 0 ? new MemoryStream(bytes) : null;
+		}
+		catch (Exception ex)
+		{
+			_logger.LogWarning(
+				ex,
+				"HTTP fallback exception for photo. AlbumId: {AlbumId}, PhotoId: {PhotoId}, ImageUrl: {ImageUrl}, TraceId: {TraceId}",
+				albumId,
+				photoId,
+				imageUrl,
+				HttpContext.TraceIdentifier);
+
+			return null;
+		}
 	}
 
 	private static string SafeZipSegment(string? value, string fallback)
