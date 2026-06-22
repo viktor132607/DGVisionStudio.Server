@@ -22,7 +22,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 	public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 	public DbSet<PrintRequest> PrintRequests => Set<PrintRequest>();
 	public DbSet<PrintRequestItem> PrintRequestItems => Set<PrintRequestItem>();
-	public DbSet<ShootingCalendarEvent> ShootingCalendarEvents => Set<ShootingCalendarEvent>();
+	public DbSet<CalendarEvent> CalendarEvents => Set<CalendarEvent>();
 
 	protected override void OnModelCreating(ModelBuilder builder)
 	{
@@ -282,7 +282,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 				.OnDelete(DeleteBehavior.Restrict);
 		});
 
-		builder.Entity<ShootingCalendarEvent>(entity =>
+		builder.Entity<CalendarEvent>(entity =>
 		{
 			entity.HasKey(x => x.Id);
 
