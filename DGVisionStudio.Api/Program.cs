@@ -84,6 +84,7 @@ builder.Services.AddScoped<ClientGalleryUploadValidator>();
 builder.Services.AddScoped<ClientGalleryNamingService>();
 
 builder.Services.AddHostedService<ExpiredGalleryCleanupService>();
+builder.Services.AddHostedService<DGVisionStudio.Api.StartupMigrationService>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 	options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
