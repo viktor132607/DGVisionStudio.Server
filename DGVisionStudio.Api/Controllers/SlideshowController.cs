@@ -15,6 +15,7 @@ public class SlideshowImageDto
 	public string? AltText { get; set; }
 	public string? Caption { get; set; }
 	public int DisplayOrder { get; set; }
+	public bool IsPublished { get; set; }
 	public int PortfolioAlbumId { get; set; }
 	public string? AlbumTitle { get; set; }
 	public string? CategoryName { get; set; }
@@ -74,6 +75,7 @@ internal static class HomeSlideshowSettingsHelper
 			AltText = image.AltText,
 			Caption = image.Caption,
 			DisplayOrder = image.DisplayOrder,
+			IsPublished = image.IsPublished,
 			PortfolioAlbumId = image.PortfolioAlbumId,
 			AlbumTitle = image.PortfolioAlbum?.Title,
 			CategoryName = image.PortfolioAlbum?.PortfolioCategory?.Name,
