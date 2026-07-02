@@ -31,6 +31,11 @@ public class AdminSlideshowResponse
 	public List<SlideshowImageDto> AvailableImages { get; set; } = new();
 	public List<int> ImageIds { get; set; } = new();
 	public string? IntroVideoUrl { get; set; }
+	public bool UseDefaultInterval { get; set; }
+	public int IntervalMs { get; set; }
+	public int DefaultIntervalMs { get; set; }
+	public int MinIntervalMs { get; set; }
+	public int MaxIntervalMs { get; set; }
 }
 
 public class SlideshowIntroVideoResponse
@@ -38,20 +43,35 @@ public class SlideshowIntroVideoResponse
 	public string? VideoUrl { get; set; }
 }
 
+public class SlideshowSettingsResponse
+{
+	public bool UseDefaultInterval { get; set; }
+	public int IntervalMs { get; set; }
+	public int DefaultIntervalMs { get; set; }
+	public int MinIntervalMs { get; set; }
+	public int MaxIntervalMs { get; set; }
+}
+
 public class UpdateHomeSlideshowRequest
 {
 	public List<int>? ImageIds { get; set; }
+	public bool? UseDefaultInterval { get; set; }
+	public int? IntervalMs { get; set; }
 }
 
 internal class HomeSlideshowSettings
 {
 	public List<int> ImageIds { get; set; } = new();
+	public int? IntervalMs { get; set; }
 }
 
 internal static class HomeSlideshowSettingsHelper
 {
 	public const string SettingKey = "home-slideshow-image-ids";
 	public const string IntroVideoSettingKey = "home-slideshow-intro-video-url";
+	public const int DefaultIntervalMs = 4500;
+	public const int MinIntervalMs = 1000;
+	public const int MaxIntervalMs = 30000;
 	private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
 	public static IQueryable<PortfolioImage> GetAvailableImagesQuery(AppDbContext context) =>
@@ -90,33 +110,53 @@ internal static class HomeSlideshowSettingsHelper
 		SlideshowOrder = slideshowOrder
 	};
 
-	public static async Task<List<int>> GetSelectedImageIdsAsync(AppDbContext context)
+	public static async Task<HomeSlideshowSettings> GetSettingsAsync(AppDbContext context)
 	{
 		var setting = await context.SiteSettings.AsNoTracking().FirstOrDefaultAsync(x => x.Key == SettingKey);
-		if (setting == null || string.IsNullOrWhiteSpace(setting.Value)) return new List<int>();
+		if (setting == null || string.IsNullOrWhiteSpace(setting.Value)) return new HomeSlideshowSettings();
 
 		try
 		{
-			var parsed = JsonSerializer.Deserialize<HomeSlideshowSettings>(setting.Value, JsonOptions);
-			return NormalizeIds(parsed?.ImageIds);
+			var parsed = JsonSerializer.Deserialize<HomeSlideshowSettings>(setting.Value, JsonOptions) ?? new HomeSlideshowSettings();
+			parsed.ImageIds = NormalizeIds(parsed.ImageIds);
+			parsed.IntervalMs = NormalizeIntervalMs(parsed.IntervalMs);
+			return parsed;
 		}
 		catch
 		{
 			try
 			{
-				var parsed = JsonSerializer.Deserialize<List<int>>(setting.Value, JsonOptions);
-				return NormalizeIds(parsed);
+				var parsedIds = JsonSerializer.Deserialize<List<int>>(setting.Value, JsonOptions);
+				return new HomeSlideshowSettings { ImageIds = NormalizeIds(parsedIds) };
 			}
 			catch
 			{
-				return new List<int>();
+				return new HomeSlideshowSettings();
 			}
 		}
 	}
 
-	public static async Task SaveSelectedImageIdsAsync(AppDbContext context, List<int> imageIds)
+	public static async Task<List<int>> GetSelectedImageIdsAsync(AppDbContext context)
 	{
-		var value = JsonSerializer.Serialize(new HomeSlideshowSettings { ImageIds = NormalizeIds(imageIds) }, JsonOptions);
+		var settings = await GetSettingsAsync(context);
+		return NormalizeIds(settings.ImageIds);
+	}
+
+	public static int GetEffectiveIntervalMs(HomeSlideshowSettings settings) =>
+		NormalizeIntervalMs(settings.IntervalMs) ?? DefaultIntervalMs;
+
+	public static int? NormalizeIntervalMs(int? value)
+	{
+		if (!value.HasValue) return null;
+		return Math.Clamp(value.Value, MinIntervalMs, MaxIntervalMs);
+	}
+
+	public static async Task SaveSettingsAsync(AppDbContext context, HomeSlideshowSettings settings)
+	{
+		settings.ImageIds = NormalizeIds(settings.ImageIds);
+		settings.IntervalMs = NormalizeIntervalMs(settings.IntervalMs);
+
+		var value = JsonSerializer.Serialize(settings, JsonOptions);
 		var setting = await context.SiteSettings.FirstOrDefaultAsync(x => x.Key == SettingKey);
 
 		if (setting == null)
@@ -125,16 +165,32 @@ internal static class HomeSlideshowSettingsHelper
 			{
 				Key = SettingKey,
 				Value = value,
-				Description = "Selected image ids and order for the home page slideshow.",
+				Description = "Selected image ids, order and timing for the home page slideshow.",
 				UpdatedAtUtc = DateTime.UtcNow
 			});
 			return;
 		}
 
 		setting.Value = value;
-		setting.Description = "Selected image ids and order for the home page slideshow.";
+		setting.Description = "Selected image ids, order and timing for the home page slideshow.";
 		setting.UpdatedAtUtc = DateTime.UtcNow;
 	}
+
+	public static async Task SaveSelectedImageIdsAsync(AppDbContext context, List<int> imageIds)
+	{
+		var settings = await GetSettingsAsync(context);
+		settings.ImageIds = NormalizeIds(imageIds);
+		await SaveSettingsAsync(context, settings);
+	}
+
+	public static SlideshowSettingsResponse ToSettingsResponse(HomeSlideshowSettings settings) => new()
+	{
+		UseDefaultInterval = !settings.IntervalMs.HasValue,
+		IntervalMs = GetEffectiveIntervalMs(settings),
+		DefaultIntervalMs = DefaultIntervalMs,
+		MinIntervalMs = MinIntervalMs,
+		MaxIntervalMs = MaxIntervalMs
+	};
 
 	public static async Task<string?> GetIntroVideoUrlAsync(AppDbContext context)
 	{
@@ -223,6 +279,13 @@ public class PortfolioSlideshowController : ControllerBase
 	{
 		return Ok(new SlideshowIntroVideoResponse { VideoUrl = await HomeSlideshowSettingsHelper.GetIntroVideoUrlAsync(_context) });
 	}
+
+	[HttpGet("settings")]
+	public async Task<IActionResult> GetSettings()
+	{
+		var settings = await HomeSlideshowSettingsHelper.GetSettingsAsync(_context);
+		return Ok(HomeSlideshowSettingsHelper.ToSettingsResponse(settings));
+	}
 }
 
 [Authorize(Roles = "Admin")]
@@ -245,7 +308,8 @@ public class AdminSlideshowController : ControllerBase
 	public async Task<IActionResult> GetSlideshowManagement()
 	{
 		var availableImages = await HomeSlideshowSettingsHelper.ApplyDefaultOrder(HomeSlideshowSettingsHelper.GetAvailableImagesQuery(_context).AsNoTracking()).ToListAsync();
-		var savedIds = await HomeSlideshowSettingsHelper.GetSelectedImageIdsAsync(_context);
+		var settings = await HomeSlideshowSettingsHelper.GetSettingsAsync(_context);
+		var savedIds = HomeSlideshowSettingsHelper.NormalizeIds(settings.ImageIds);
 		var currentIds = savedIds.Count > 0 ? savedIds : availableImages.Select(x => x.Id).ToList();
 		var availableById = availableImages.ToDictionary(x => x.Id);
 		var currentIdSet = currentIds.ToHashSet();
@@ -258,13 +322,19 @@ public class AdminSlideshowController : ControllerBase
 			var selectedIndex = currentIds.IndexOf(image.Id);
 			return HomeSlideshowSettingsHelper.ToDto(image, currentIdSet.Contains(image.Id), selectedIndex >= 0 ? selectedIndex + 1 : null);
 		}).ToList();
+		var timing = HomeSlideshowSettingsHelper.ToSettingsResponse(settings);
 
 		return Ok(new AdminSlideshowResponse
 		{
 			SelectedImages = selectedImages!,
 			AvailableImages = allImages,
 			ImageIds = selectedImages!.Select(x => x.Id).ToList(),
-			IntroVideoUrl = await HomeSlideshowSettingsHelper.GetIntroVideoUrlAsync(_context)
+			IntroVideoUrl = await HomeSlideshowSettingsHelper.GetIntroVideoUrlAsync(_context),
+			UseDefaultInterval = timing.UseDefaultInterval,
+			IntervalMs = timing.IntervalMs,
+			DefaultIntervalMs = timing.DefaultIntervalMs,
+			MinIntervalMs = timing.MinIntervalMs,
+			MaxIntervalMs = timing.MaxIntervalMs
 		});
 	}
 
@@ -279,7 +349,23 @@ public class AdminSlideshowController : ControllerBase
 			.ToListAsync();
 
 		var availableSet = availableIds.ToHashSet();
-		await HomeSlideshowSettingsHelper.SaveSelectedImageIdsAsync(_context, requestedIds.Where(availableSet.Contains).ToList());
+		var settings = await HomeSlideshowSettingsHelper.GetSettingsAsync(_context);
+		settings.ImageIds = requestedIds.Where(availableSet.Contains).ToList();
+
+		if (model.UseDefaultInterval == true)
+		{
+			settings.IntervalMs = null;
+		}
+		else if (model.UseDefaultInterval == false && model.IntervalMs.HasValue)
+		{
+			settings.IntervalMs = HomeSlideshowSettingsHelper.NormalizeIntervalMs(model.IntervalMs);
+		}
+		else if (model.IntervalMs.HasValue)
+		{
+			settings.IntervalMs = HomeSlideshowSettingsHelper.NormalizeIntervalMs(model.IntervalMs);
+		}
+
+		await HomeSlideshowSettingsHelper.SaveSettingsAsync(_context, settings);
 		await _context.SaveChangesAsync();
 		return NoContent();
 	}
