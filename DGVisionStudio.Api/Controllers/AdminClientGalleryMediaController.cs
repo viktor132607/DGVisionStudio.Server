@@ -33,8 +33,12 @@ public class AdminClientGalleryMediaController : ControllerBase
 			return NotFound(new { message = "Media not found." });
 
 		media.Name = Normalize(request.Name, 250);
-		media.AltText = Normalize(request.AltText, 500);
-		media.Caption = Normalize(request.Caption, 1000);
+
+		if (request.ClearAltAndCaption)
+		{
+			media.AltText = null;
+			media.Caption = null;
+		}
 
 		await _context.SaveChangesAsync();
 
@@ -58,6 +62,5 @@ public class AdminClientGalleryMediaController : ControllerBase
 public class UpdateGalleryMediaMetadataRequest
 {
 	public string? Name { get; set; }
-	public string? AltText { get; set; }
-	public string? Caption { get; set; }
+	public bool ClearAltAndCaption { get; set; }
 }
