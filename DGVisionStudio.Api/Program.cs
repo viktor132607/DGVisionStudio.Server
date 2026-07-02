@@ -227,6 +227,7 @@ Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "client-galleries
 Directory.CreateDirectory(Path.Combine(app.Environment.ContentRootPath, "logs"));
 
 await ServicesDataSeeder.SeedAsync(app.Services);
+await PricingDataSeeder.SeedAsync(app.Services);
 
 app.UseStaticFiles();
 
