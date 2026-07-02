@@ -226,10 +226,7 @@ Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "client-galleries
 
 Directory.CreateDirectory(Path.Combine(app.Environment.ContentRootPath, "logs"));
 
-using (var scope = app.Services.CreateScope())
-{
-	await ServicesDataSeeder.SeedAsync(scope.ServiceProvider);
-}
+await ServicesDataSeeder.SeedAsync(app.Services);
 
 app.UseStaticFiles();
 
