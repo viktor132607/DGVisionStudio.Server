@@ -9,7 +9,20 @@ public static class PortfolioMediaNameSetup
 	{
 		using var scope = services.CreateScope();
 		var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-		const string sql = "ALTER TABLE \"PortfolioImages\" ADD COLUMN IF NOT EXISTS \"Name\" character varying(250) NULL;";
-		await db.Database.ExecuteSqlRawAsync(sql);
+
+		await db.Database.ExecuteSqlRawAsync("""
+			ALTER TABLE "PortfolioImages"
+			ADD COLUMN IF NOT EXISTS "Name" character varying(250) NULL;
+			""");
+
+		await db.Database.ExecuteSqlRawAsync("""
+			UPDATE "PortfolioImages"
+			SET "Name" = "AltText",
+				"AltText" = NULL
+			WHERE ("Name" IS NULL OR "Name" = '')
+				AND "AltText" IS NOT NULL
+				AND "AltText" <> ''
+				AND ("Caption" IS NULL OR "Caption" = '');
+			""");
 	}
 }
