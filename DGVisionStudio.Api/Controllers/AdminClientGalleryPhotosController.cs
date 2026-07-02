@@ -1,9 +1,14 @@
 using System.Security.Claims;
 using DGVisionStudio.Application.DTOs.ClientGalleries;
 using DGVisionStudio.Application.Interfaces;
+using DGVisionStudio.Domain.Entities;
+using DGVisionStudio.Infrastructure.Data;
+using DGVisionStudio.Infrastructure.Services.ClientGalleries;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace DGVisionStudio.Infrastructure.Controllers;
@@ -15,19 +20,30 @@ public class AdminClientGalleryPhotosController : ControllerBase
 {
 	private const long MaxPhotoUploadSizeBytes = 20 * 1024 * 1024;
 	private const long MaxPhotoUploadRequestSizeBytes = 25 * 1024 * 1024;
+	private const long MaxVideoUploadSizeBytes = 100 * 1024 * 1024;
+	private const long MaxVideoUploadRequestSizeBytes = 105 * 1024 * 1024;
 
 	private readonly IClientGalleryService _clientGalleryService;
 	private readonly IAuditLogService _auditLogService;
 	private readonly ILogger<AdminClientGalleryPhotosController> _logger;
+	private readonly AppDbContext _dbContext;
+	private readonly IWebHostEnvironment _environment;
+	private readonly ClientGalleryMapper _mapper;
 
 	public AdminClientGalleryPhotosController(
 		IClientGalleryService clientGalleryService,
 		IAuditLogService auditLogService,
-		ILogger<AdminClientGalleryPhotosController> logger)
+		ILogger<AdminClientGalleryPhotosController> logger,
+		AppDbContext dbContext,
+		IWebHostEnvironment environment,
+		ClientGalleryMapper mapper)
 	{
 		_clientGalleryService = clientGalleryService;
 		_auditLogService = auditLogService;
 		_logger = logger;
+		_dbContext = dbContext;
+		_environment = environment;
+		_mapper = mapper;
 	}
 
 	[HttpGet("photos/{photoId:int}/download")]
@@ -127,6 +143,94 @@ public class AdminClientGalleryPhotosController : ControllerBase
 			});
 
 		return Ok(photo);
+	}
+
+	[RequestSizeLimit(MaxVideoUploadRequestSizeBytes)]
+	[RequestFormLimits(MultipartBodyLengthLimit = MaxVideoUploadRequestSizeBytes)]
+	[HttpPost("videos/upload")]
+	public async Task<IActionResult> UploadVideo(
+		[FromRoute] int galleryId,
+		IFormFile file)
+	{
+		if (galleryId <= 0)
+			return BadRequest(new { message = "Invalid gallery id." });
+
+		if (file == null || file.Length == 0)
+			return BadRequest(new { message = "File is required." });
+
+		if (file.Length > MaxVideoUploadSizeBytes)
+			return BadRequest(new { message = "Video is too large. Maximum size is 100MB." });
+
+		if (!IsAllowedVideo(file))
+			return BadRequest(new { message = "Only video files are allowed: mp4, mov, webm, m4v." });
+
+		var album = await _dbContext.PortfolioAlbums.FirstOrDefaultAsync(x => x.Id == galleryId && !x.IsDeleted);
+		if (album == null)
+			return NotFound(new { message = "Gallery not found." });
+
+		var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+		var safeFileName = $"{Guid.NewGuid():N}{extension}";
+		var uploadFolder = GetVideoUploadFolder();
+		Directory.CreateDirectory(uploadFolder);
+
+		var fullPath = Path.Combine(uploadFolder, safeFileName);
+		await using (var stream = System.IO.File.Create(fullPath))
+		{
+			await file.CopyToAsync(stream);
+		}
+
+		var savedPath = $"/uploads/portfolio/videos/{safeFileName}";
+		var nextDisplayOrder = await _dbContext.PortfolioImages
+			.Where(x => x.PortfolioAlbumId == galleryId && !x.IsDeleted)
+			.Select(x => (int?)x.DisplayOrder)
+			.MaxAsync() ?? 0;
+
+		var originalFileNameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
+		var video = new PortfolioImage
+		{
+			PortfolioAlbumId = galleryId,
+			ImageUrl = savedPath,
+			ThumbnailUrl = null,
+			AltText = string.IsNullOrWhiteSpace(originalFileNameWithoutExtension) ? null : originalFileNameWithoutExtension.Trim(),
+			Caption = null,
+			Width = 0,
+			Height = 0,
+			DisplayOrder = nextDisplayOrder + 1,
+			IsCover = false,
+			IsPublished = true,
+			IsDeleted = false,
+			DeletedAtUtc = null
+		};
+
+		_dbContext.PortfolioImages.Add(video);
+		await _dbContext.SaveChangesAsync();
+
+		_logger.LogInformation(
+			"Admin uploaded gallery video locally. GalleryId: {GalleryId}, MediaId: {MediaId}, FileName: {FileName}, FileSize: {FileSize}, ContentType: {ContentType}, Admin: {Admin}, TraceId: {TraceId}",
+			galleryId,
+			video.Id,
+			file.FileName,
+			file.Length,
+			file.ContentType,
+			User.Identity?.Name,
+			HttpContext.TraceIdentifier);
+
+		await AuditAsync(
+			"UploadGalleryVideo",
+			"ClientGalleryPhoto",
+			video.Id.ToString(),
+			null,
+			new
+			{
+				GalleryId = galleryId,
+				MediaId = video.Id,
+				file.FileName,
+				file.Length,
+				file.ContentType,
+				SavedPath = savedPath
+			});
+
+		return Ok(_mapper.MapPhotoDto(video, true, galleryId));
 	}
 
 	[HttpPut("photos/{photoId:int}")]
@@ -271,6 +375,31 @@ public class AdminClientGalleryPhotosController : ControllerBase
 			request);
 
 		return Ok(new { message = "Photos reordered successfully." });
+	}
+
+	private static bool IsAllowedVideo(IFormFile file)
+	{
+		var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+		var allowedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+		{
+			".mp4",
+			".mov",
+			".webm",
+			".m4v"
+		};
+
+		return allowedExtensions.Contains(extension) && file.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase);
+	}
+
+	private string GetVideoUploadFolder()
+	{
+		var webRootPath = _environment.WebRootPath;
+		if (string.IsNullOrWhiteSpace(webRootPath))
+		{
+			webRootPath = Path.Combine(_environment.ContentRootPath, "wwwroot");
+		}
+
+		return Path.Combine(webRootPath, "uploads", "portfolio", "videos");
 	}
 
 	private async Task AuditAsync(
