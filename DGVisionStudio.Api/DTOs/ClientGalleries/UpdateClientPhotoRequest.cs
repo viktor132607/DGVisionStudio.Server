@@ -1,7 +1,9 @@
-﻿namespace DGVisionStudio.Application.DTOs.ClientGalleries;
+namespace DGVisionStudio.Application.DTOs.ClientGalleries;
 
 public class UpdateClientPhotoRequest
 {
+	public string? Name { get; set; }
+
 	public string? AltText { get; set; }
 
 	public string? Caption { get; set; }

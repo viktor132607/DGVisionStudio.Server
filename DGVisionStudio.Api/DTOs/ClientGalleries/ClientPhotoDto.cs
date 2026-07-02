@@ -10,6 +10,8 @@ public class ClientPhotoDto
 
 	public string? DownloadUrl { get; set; }
 
+	public string? Name { get; set; }
+
 	public string? AltText { get; set; }
 
 	public string? Caption { get; set; }

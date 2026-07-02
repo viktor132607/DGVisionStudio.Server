@@ -97,6 +97,7 @@ public class ClientGalleryMapper
 			PreviewUrl = previewUrl,
 			OriginalUrl = isVideo ? image.ImageUrl : null,
 			DownloadUrl = canDownload ? $"/api/client-galleries/{galleryId}/photos/{image.Id}/download" : null,
+			Name = image.Name,
 			AltText = image.AltText,
 			Caption = image.Caption,
 			CanDownload = canDownload && !string.IsNullOrWhiteSpace(image.ImageUrl),
