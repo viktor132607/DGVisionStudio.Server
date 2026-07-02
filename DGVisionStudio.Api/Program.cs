@@ -44,7 +44,7 @@ builder.WebHost.ConfigureKestrel(options =>
 builder.Services.AddControllers()
 	.AddJsonOptions(options =>
 	{
-		options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+		op­tions.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
 	});
 
 builder.Services.Configure<FormOptions>(options =>
@@ -84,6 +84,7 @@ builder.Services.AddScoped<ClientGalleryUploadValidator>();
 builder.Services.AddScoped<ClientGalleryNamingService>();
 
 builder.Services.AddHostedService<ExpiredGalleryCleanupService>();
+builder.Services.AddHostedService<CalendarReminderEmailService>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 	options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -226,6 +227,7 @@ Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "client-galleries
 
 Directory.CreateDirectory(Path.Combine(app.Environment.ContentRootPath, "logs"));
 
+await CalendarReminderSchemaSetup.EnsureAsync(app.Services);
 await PortfolioMediaNameSetup.EnsureAsync(app.Services);
 await ServicesDataSeeder.SeedAsync(app.Services);
 await PricingDataSeeder.SeedAsync(app.Services);
