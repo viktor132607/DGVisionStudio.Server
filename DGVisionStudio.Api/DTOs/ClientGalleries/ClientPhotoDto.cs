@@ -1,4 +1,4 @@
-﻿namespace DGVisionStudio.Application.DTOs.ClientGalleries;
+namespace DGVisionStudio.Application.DTOs.ClientGalleries;
 
 public class ClientPhotoDto
 {
@@ -21,6 +21,10 @@ public class ClientPhotoDto
 	public string? Description { get; set; }
 
 	public bool IsPublished { get; set; }
+
+	public string MediaType { get; set; } = "Image";
+
+	public string? ContentType { get; set; }
 
 	public bool ShowInPublicGallery { get; set; }
 
