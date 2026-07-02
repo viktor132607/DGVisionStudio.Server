@@ -291,14 +291,19 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 			entity.Property(x => x.AssignedTo).HasMaxLength(150);
 			entity.Property(x => x.ClientName).HasMaxLength(150);
 			entity.Property(x => x.ClientPhone).HasMaxLength(50);
+			entity.Property(x => x.ClientEmail).HasMaxLength(150);
 			entity.Property(x => x.Location).HasMaxLength(300);
 			entity.Property(x => x.Description).HasMaxLength(2000);
 			entity.Property(x => x.Color).HasMaxLength(20);
+			entity.Property(x => x.RemindersEnabled).HasDefaultValue(true);
 			entity.Property(x => x.CreatedAtUtc).HasDefaultValueSql("NOW()");
 
 			entity.HasIndex(x => x.StartAtUtc);
 			entity.HasIndex(x => x.EndAtUtc);
 			entity.HasIndex(x => x.EventType);
+			entity.HasIndex(x => x.ClientEmail);
+			entity.HasIndex(x => x.ContactRequestId);
+			entity.HasIndex(x => x.RemindersEnabled);
 		});
 	}
 }
