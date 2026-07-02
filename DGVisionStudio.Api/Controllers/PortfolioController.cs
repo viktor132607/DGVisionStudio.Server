@@ -93,8 +93,11 @@ public class PortfolioController : ControllerBase
 				x.Id,
 				x.ImageUrl,
 				x.ThumbnailUrl,
+				x.Name,
 				x.AltText,
 				x.Caption,
+				mediaType = IsVideoPath(x.ImageUrl) ? "Video" : "Image",
+				contentType = GetContentType(x.ImageUrl),
 				x.DisplayOrder,
 				x.IsPublished,
 				x.PortfolioAlbumId,
@@ -109,5 +112,24 @@ public class PortfolioController : ControllerBase
 			.ToListAsync();
 
 		return Ok(items);
+	}
+
+	private static bool IsVideoPath(string? value)
+	{
+		var extension = Path.GetExtension((value ?? string.Empty).Split('?', '#')[0]).ToLowerInvariant();
+		return extension is ".mp4" or ".mov" or ".webm" or ".m4v";
+	}
+
+	private static string? GetContentType(string? value)
+	{
+		var extension = Path.GetExtension((value ?? string.Empty).Split('?', '#')[0]).ToLowerInvariant();
+		return extension switch
+		{
+			".mp4" => "video/mp4",
+			".mov" => "video/quicktime",
+			".webm" => "video/webm",
+			".m4v" => "video/x-m4v",
+			_ => null
+		};
 	}
 }
