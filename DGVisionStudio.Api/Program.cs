@@ -44,7 +44,7 @@ builder.WebHost.ConfigureKestrel(options =>
 builder.Services.AddControllers()
 	.AddJsonOptions(options =>
 	{
-		op­tions.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+		options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
 	});
 
 builder.Services.Configure<FormOptions>(options =>
