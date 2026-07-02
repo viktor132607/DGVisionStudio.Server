@@ -8,9 +8,14 @@ public class CalendarEvent
 	public string? AssignedTo { get; set; }
 	public string? ClientName { get; set; }
 	public string? ClientPhone { get; set; }
+	public string? ClientEmail { get; set; }
+	public Guid? ContactRequestId { get; set; }
 	public string? Location { get; set; }
 	public string? Description { get; set; }
 	public string? Color { get; set; }
+	public bool RemindersEnabled { get; set; } = true;
+	public DateTime? Reminder24hSentAtUtc { get; set; }
+	public DateTime? Reminder2hSentAtUtc { get; set; }
 	public DateTime StartAtUtc { get; set; }
 	public DateTime EndAtUtc { get; set; }
 	public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
