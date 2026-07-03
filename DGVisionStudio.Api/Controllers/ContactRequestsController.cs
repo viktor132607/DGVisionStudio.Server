@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.RegularExpressions;
 using DGVisionStudio.Application.DTOs;
 using DGVisionStudio.Application.Interfaces;
 using DGVisionStudio.Domain.Entities;
@@ -14,6 +15,7 @@ namespace DGVisionStudio.Infrastructure.Controllers;
 [Route("api/contact")]
 public class ContactRequestsController : ControllerBase
 {
+	private static readonly Regex PhoneRegex = new(@"^\+?[0-9\s().-]{7,20}$", RegexOptions.Compiled);
 	private readonly AppDbContext _context;
 	private readonly IEmailService _emailService;
 	private readonly IConfiguration _configuration;
@@ -29,17 +31,23 @@ public class ContactRequestsController : ControllerBase
 	[HttpPost]
 	public async Task<IActionResult> Create([FromBody] CreateContactRequestDto dto)
 	{
-		if (string.IsNullOrWhiteSpace(dto.Name) || string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Message))
-			return BadRequest(new { message = "Name, email and message are required." });
+		if (string.IsNullOrWhiteSpace(dto.Name) || string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Phone))
+			return BadRequest(new { message = "Name, email and phone are required." });
+
+		var normalizedPhone = dto.Phone.Trim();
+		var phoneDigitsCount = normalizedPhone.Count(char.IsDigit);
+
+		if (!PhoneRegex.IsMatch(normalizedPhone) || phoneDigitsCount < 7 || phoneDigitsCount > 15)
+			return BadRequest(new { message = "Invalid phone number." });
 
 		var entity = new ContactRequest
 		{
 			Id = Guid.NewGuid(),
 			Name = dto.Name.Trim(),
 			Email = dto.Email.Trim(),
-			Phone = string.IsNullOrWhiteSpace(dto.Phone) ? null : dto.Phone.Trim(),
+			Phone = normalizedPhone,
 			Subject = string.IsNullOrWhiteSpace(dto.Subject) ? null : dto.Subject.Trim(),
-			Message = dto.Message.Trim(),
+			Message = string.IsNullOrWhiteSpace(dto.Message) ? "-" : dto.Message.Trim(),
 			IsSeenByAdmin = false,
 			CreatedAtUtc = DateTime.UtcNow
 		};
