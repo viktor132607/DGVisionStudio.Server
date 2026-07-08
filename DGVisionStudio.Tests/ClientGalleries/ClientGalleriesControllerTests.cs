@@ -9,7 +9,6 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 
 namespace DGVisionStudio.Tests.ClientGalleries;
 
@@ -210,7 +209,7 @@ public sealed class ClientGalleriesControllerTests
         public TestUserManager(ApplicationUser? user)
             : base(
                 new TestUserStore(),
-                Options.Create(new IdentityOptions()),
+                Microsoft.Extensions.Options.Options.Create(new IdentityOptions()),
                 new PasswordHasher<ApplicationUser>(),
                 Array.Empty<IUserValidator<ApplicationUser>>(),
                 Array.Empty<IPasswordValidator<ApplicationUser>>(),
