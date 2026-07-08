@@ -2,6 +2,7 @@ using DGVisionStudio.Api.Configuration;
 using DGVisionStudio.Api.Middleware;
 using DGVisionStudio.Domain.Entities;
 using DGVisionStudio.Infrastructure.Data;
+using DGVisionStudio.Infrastructure.Services;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
