@@ -71,7 +71,7 @@ public class PortfolioController : ControllerBase
 	public async Task<IActionResult> GetImages([FromQuery] int? albumId = null)
 	{
 		var query = _context.PortfolioImages
-			.Include(x => x.PortfolioAlbum)
+			.Include(x => x.PortfolioAlbum!)
 			.ThenInclude(x => x.PortfolioCategory)
 			.Where(x =>
 				x.IsPublished &&
