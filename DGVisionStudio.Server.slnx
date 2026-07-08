@@ -2,4 +2,5 @@
   <Project Path="DGVisionStudio.Domain/DGVisionStudio.Domain.csproj" />
   <Project Path="DGVisionStudio.Infrastructure/DGVisionStudio.Infrastructure.csproj" />
   <Project Path="DGVisionStudio.Api/DGVisionStudio.Api.csproj" />
+  <Project Path="DGVisionStudio.Tests/DGVisionStudio.Tests.csproj" />
 </Solution>
