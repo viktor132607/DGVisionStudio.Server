@@ -1,3 +1,4 @@
+using DGVisionStudio.Api.Configuration;
 using DGVisionStudio.Api.Middleware;
 using DGVisionStudio.Application.Interfaces;
 using DGVisionStudio.Domain.Entities;
@@ -86,8 +87,10 @@ builder.Services.AddScoped<ClientGalleryNamingService>();
 builder.Services.AddHostedService<ExpiredGalleryCleanupService>();
 builder.Services.AddHostedService<CalendarReminderEmailService>();
 
+var resolvedDatabaseConnection = DatabaseConnectionStringResolver.Resolve(builder.Configuration, builder.Environment);
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-	options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+	options.UseNpgsql(resolvedDatabaseConnection.ConnectionString));
 
 builder.Services
 	.AddIdentity<ApplicationUser, IdentityRole>(options =>
@@ -201,6 +204,10 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+app.Logger.LogInformation(
+	"PostgreSQL connection resolved from configuration key {DatabaseConnectionSource}.",
+	resolvedDatabaseConnection.SourceKey);
 
 app.UseSerilogRequestLogging();
 
