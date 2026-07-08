@@ -2,6 +2,7 @@ using DGVisionStudio.Api.Services;
 using DGVisionStudio.Application.Interfaces;
 using DGVisionStudio.Infrastructure.Services;
 using DGVisionStudio.Infrastructure.Services.ClientGalleries;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DGVisionStudio.Api.Configuration;
 
