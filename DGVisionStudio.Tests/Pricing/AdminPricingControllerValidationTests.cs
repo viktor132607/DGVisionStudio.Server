@@ -1,4 +1,4 @@
-using System.Reflection;
+using DGVisionStudio.Api.Services;
 using DGVisionStudio.Infrastructure.Controllers;
 using FluentAssertions;
 
@@ -17,7 +17,7 @@ public sealed class AdminPricingControllerValidationTests
             PriceText = "100 EUR"
         };
 
-        var result = InvokeValidate(request);
+        var result = PricingService.Validate(request);
 
         result.Should().Be("Заглавието е задължително.");
     }
@@ -33,7 +33,7 @@ public sealed class AdminPricingControllerValidationTests
             PriceText = "100 EUR"
         };
 
-        var result = InvokeValidate(request);
+        var result = PricingService.Validate(request);
 
         result.Should().Be("Описанието е задължително.");
     }
@@ -49,7 +49,7 @@ public sealed class AdminPricingControllerValidationTests
             PriceText = " "
         };
 
-        var result = InvokeValidate(request);
+        var result = PricingService.Validate(request);
 
         result.Should().Be("Цената е задължителна при фиксирана цена.");
     }
@@ -65,7 +65,7 @@ public sealed class AdminPricingControllerValidationTests
             PriceText = " "
         };
 
-        var result = InvokeValidate(request);
+        var result = PricingService.Validate(request);
 
         result.Should().BeNull();
     }
@@ -79,20 +79,8 @@ public sealed class AdminPricingControllerValidationTests
     [InlineData("unknown", "Fixed")]
     public void NormalizePricingMode_NormalizesSupportedValues(string? input, string expected)
     {
-        var result = InvokeNormalizePricingMode(input);
+        var result = PricingService.NormalizePricingMode(input);
 
         result.Should().Be(expected);
-    }
-
-    private static string? InvokeValidate(PricingItemRequest request)
-    {
-        var method = typeof(AdminPricingController).GetMethod("Validate", BindingFlags.NonPublic | BindingFlags.Static)!;
-        return (string?)method.Invoke(null, new object[] { request });
-    }
-
-    private static string InvokeNormalizePricingMode(string? value)
-    {
-        var method = typeof(AdminPricingController).GetMethod("NormalizePricingMode", BindingFlags.NonPublic | BindingFlags.Static)!;
-        return (string)method.Invoke(null, new object?[] { value })!;
     }
 }
