@@ -1,5 +1,6 @@
 using DGVisionStudio.Api.Configuration;
 using DGVisionStudio.Api.Middleware;
+using DGVisionStudio.Api.Services;
 using DGVisionStudio.Application.Interfaces;
 using DGVisionStudio.Domain.Entities;
 using DGVisionStudio.Infrastructure.Data;
@@ -89,6 +90,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IPricingService, PricingService>();
 
 if (storageOptions.UseCloudinary)
 {
