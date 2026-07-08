@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
 using Serilog;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
@@ -84,6 +85,7 @@ builder.Services.Configure<FormOptions>(options =>
 });
 
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddScoped<IEmailService, EmailService>();
@@ -268,6 +270,13 @@ if (app.Environment.IsDevelopment())
 
 if (app.Environment.IsDevelopment())
 {
+	app.MapOpenApi();
+	app.MapScalarApiReference(options =>
+	{
+		options.WithTheme(ScalarTheme.Moon)
+			.WithDefaultHttpClient(ScalarTarget.Shell, ScalarClient.Curl);
+	});
+
 	app.UseSwagger();
 	app.UseSwaggerUI();
 }
