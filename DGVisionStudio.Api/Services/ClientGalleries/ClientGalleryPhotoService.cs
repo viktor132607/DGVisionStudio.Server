@@ -40,8 +40,8 @@ public class ClientGalleryPhotoService : IClientGalleryPhotoService
 
 		var photo = await _dbContext.PortfolioImages
 			.AsNoTracking()
-			.Include(x => x.PortfolioAlbum)
-				.ThenInclude(x => x!.UserAccesses)
+			.Include(x => x.PortfolioAlbum!)
+				.ThenInclude(x => x.UserAccesses)
 			.FirstOrDefaultAsync(x =>
 				x.Id == photoId &&
 				x.PortfolioAlbumId == galleryId &&
@@ -186,7 +186,7 @@ public class ClientGalleryPhotoService : IClientGalleryPhotoService
 		await using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
 		var photo = await _dbContext.PortfolioImages
-			.Include(x => x.PortfolioAlbum)
+			.Include(x => x.PortfolioAlbum!)
 				.ThenInclude(x => x.Images)
 			.FirstOrDefaultAsync(x =>
 				x.Id == photoId &&
