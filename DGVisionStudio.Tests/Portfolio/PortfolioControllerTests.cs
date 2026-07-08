@@ -18,13 +18,14 @@ public sealed class PortfolioControllerTests
             new PortfolioCategory { Key = "weddings", Name = "Weddings", NameEn = "Weddings", DisplayOrder = 2, IsActive = true },
             new PortfolioCategory { Key = "events", Name = "Events", NameEn = "Events", DisplayOrder = 1, IsActive = true });
         await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
 
         var controller = new PortfolioController(context);
 
         var result = await controller.GetCategories();
 
-        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        var categories = okResult.Value.Should().BeAssignableTo<IEnumerable<PortfolioCategory>>().Subject.ToList();
+        var okResult = result.Should().BeOfType<OkObjectResult>().Which;
+        var categories = okResult.Value.Should().BeAssignableTo<IEnumerable<PortfolioCategory>>().Which.ToList();
         categories.Should().HaveCount(2);
         categories.Select(x => x.Key).Should().Equal("events", "weddings");
         categories.Should().OnlyContain(x => x.IsActive);
@@ -45,13 +46,14 @@ public sealed class PortfolioControllerTests
             new PortfolioAlbum { PortfolioCategoryId = activeCategory.Id, Slug = "user-uploaded", Title = "User Uploaded", IsPublished = true, IsUserUploaded = true, DisplayOrder = 1 },
             new PortfolioAlbum { PortfolioCategoryId = inactiveCategory.Id, Slug = "inactive-category", Title = "Inactive Category", IsPublished = true, IsUserUploaded = false, DisplayOrder = 1 });
         await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
 
         var controller = new PortfolioController(context);
 
         var result = await controller.GetAlbums();
 
-        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        var albums = okResult.Value.Should().BeAssignableTo<IEnumerable<PortfolioAlbum>>().Subject.ToList();
+        var okResult = result.Should().BeOfType<OkObjectResult>().Which;
+        var albums = okResult.Value.Should().BeAssignableTo<IEnumerable<PortfolioAlbum>>().Which.ToList();
         albums.Should().ContainSingle();
         albums[0].Slug.Should().Be("visible");
     }
@@ -69,13 +71,14 @@ public sealed class PortfolioControllerTests
             new PortfolioAlbum { PortfolioCategoryId = firstCategory.Id, Slug = "first-album", Title = "First Album", IsPublished = true, IsUserUploaded = false },
             new PortfolioAlbum { PortfolioCategoryId = secondCategory.Id, Slug = "second-album", Title = "Second Album", IsPublished = true, IsUserUploaded = false });
         await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
 
         var controller = new PortfolioController(context);
 
         var result = await controller.GetAlbums(firstCategory.Id);
 
-        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        var albums = okResult.Value.Should().BeAssignableTo<IEnumerable<PortfolioAlbum>>().Subject.ToList();
+        var okResult = result.Should().BeOfType<OkObjectResult>().Which;
+        var albums = okResult.Value.Should().BeAssignableTo<IEnumerable<PortfolioAlbum>>().Which.ToList();
         albums.Should().ContainSingle();
         albums[0].Slug.Should().Be("first-album");
     }
@@ -97,6 +100,7 @@ public sealed class PortfolioControllerTests
             IsUserUploaded = false
         });
         await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
 
         var controller = new PortfolioController(context);
 
@@ -128,13 +132,14 @@ public sealed class PortfolioControllerTests
             new PortfolioImage { PortfolioAlbumId = album.Id, ImageUrl = "/images/visible.jpg", IsPublished = true, DisplayOrder = 2 },
             new PortfolioImage { PortfolioAlbumId = album.Id, ImageUrl = "/images/hidden.jpg", IsPublished = false, DisplayOrder = 1 });
         await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
 
         var controller = new PortfolioController(context);
 
         var result = await controller.GetAlbum("visible-album");
 
-        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        var returnedAlbum = okResult.Value.Should().BeOfType<PortfolioAlbum>().Subject;
+        var okResult = result.Should().BeOfType<OkObjectResult>().Which;
+        var returnedAlbum = okResult.Value.Should().BeOfType<PortfolioAlbum>().Which;
         returnedAlbum.Images.Should().ContainSingle();
         returnedAlbum.Images.Single().ImageUrl.Should().Be("/images/visible.jpg");
     }
@@ -162,13 +167,14 @@ public sealed class PortfolioControllerTests
             new PortfolioImage { PortfolioAlbumId = userUploadedAlbum.Id, ImageUrl = "/images/user.jpg", IsPublished = true },
             new PortfolioImage { PortfolioAlbumId = inactiveCategoryAlbum.Id, ImageUrl = "/images/inactive.jpg", IsPublished = true });
         await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
 
         var controller = new PortfolioController(context);
 
         var result = await controller.GetImages();
 
-        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        var images = okResult.Value.Should().BeAssignableTo<IEnumerable<object>>().Subject.ToList();
+        var okResult = result.Should().BeOfType<OkObjectResult>().Which;
+        var images = okResult.Value.Should().BeAssignableTo<IEnumerable<object>>().Which.ToList();
         images.Should().ContainSingle();
         GetPropertyValue<string>(images[0], "ImageUrl").Should().Be("/images/visible.mp4");
         GetPropertyValue<string>(images[0], "mediaType").Should().Be("Video");
@@ -192,13 +198,14 @@ public sealed class PortfolioControllerTests
             new PortfolioImage { PortfolioAlbumId = firstAlbum.Id, ImageUrl = "/images/first.jpg", IsPublished = true },
             new PortfolioImage { PortfolioAlbumId = secondAlbum.Id, ImageUrl = "/images/second.jpg", IsPublished = true });
         await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
 
         var controller = new PortfolioController(context);
 
         var result = await controller.GetImages(firstAlbum.Id);
 
-        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        var images = okResult.Value.Should().BeAssignableTo<IEnumerable<object>>().Subject.ToList();
+        var okResult = result.Should().BeOfType<OkObjectResult>().Which;
+        var images = okResult.Value.Should().BeAssignableTo<IEnumerable<object>>().Which.ToList();
         images.Should().ContainSingle();
         GetPropertyValue<string>(images[0], "ImageUrl").Should().Be("/images/first.jpg");
     }
