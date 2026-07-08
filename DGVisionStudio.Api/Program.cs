@@ -16,10 +16,6 @@ using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
-const long MaxUploadSizeBytes = 20 * 1024 * 1024;
-const int MaxFilesPerUploadRequest = 100;
-const long MaxUploadRequestBytes = MaxUploadSizeBytes * MaxFilesPerUploadRequest;
-
 Log.Logger = new LoggerConfiguration()
 	.ReadFrom.Configuration(builder.Configuration)
 	.Enrich.FromLogContext()
@@ -34,12 +30,44 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
+var uploadOptions = builder.Configuration
+	.GetSection(UploadOptions.SectionName)
+	.Get<UploadOptions>() ?? new UploadOptions();
+
+var storageOptions = builder.Configuration
+	.GetSection(StorageOptions.SectionName)
+	.Get<StorageOptions>() ?? new StorageOptions();
+
+var frontendOptions = builder.Configuration
+	.GetSection(FrontendOptions.SectionName)
+	.Get<FrontendOptions>() ?? new FrontendOptions();
+
+builder.Services.AddOptions<UploadOptions>()
+	.Bind(builder.Configuration.GetSection(UploadOptions.SectionName))
+	.Validate(options => options.MaxFileSizeBytes > 0, "Upload:MaxFileSizeBytes must be greater than 0.")
+	.Validate(options => options.MaxFilesPerRequest > 0, "Upload:MaxFilesPerRequest must be greater than 0.")
+	.ValidateOnStart();
+
+builder.Services.AddOptions<StorageOptions>()
+	.Bind(builder.Configuration.GetSection(StorageOptions.SectionName))
+	.Validate(options => string.IsNullOrWhiteSpace(options.Provider)
+		|| string.Equals(options.Provider, "FileSystem", StringComparison.OrdinalIgnoreCase)
+		|| string.Equals(options.Provider, "Cloudinary", StringComparison.OrdinalIgnoreCase),
+		"Storage:Provider must be empty, FileSystem, or Cloudinary.")
+	.ValidateOnStart();
+
+builder.Services.AddOptions<FrontendOptions>()
+	.Bind(builder.Configuration.GetSection(FrontendOptions.SectionName))
+	.Validate(options => FrontendOptions.IsValidOrigin(options.Url), "Frontend:Url must be an absolute http/https URL when configured.")
+	.Validate(options => options.AdditionalOrigins.All(FrontendOptions.IsValidOrigin), "Frontend:AdditionalOrigins entries must be absolute http/https URLs.")
+	.ValidateOnStart();
+
 var port = Environment.GetEnvironmentVariable("PORT") ?? "10000";
 builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
 builder.WebHost.ConfigureKestrel(options =>
 {
-	options.Limits.MaxRequestBodySize = MaxUploadRequestBytes;
+	options.Limits.MaxRequestBodySize = uploadOptions.MaxRequestSizeBytes;
 });
 
 builder.Services.AddControllers()
@@ -50,7 +78,7 @@ builder.Services.AddControllers()
 
 builder.Services.Configure<FormOptions>(options =>
 {
-	options.MultipartBodyLengthLimit = MaxUploadRequestBytes;
+	options.MultipartBodyLengthLimit = uploadOptions.MaxRequestSizeBytes;
 	options.ValueLengthLimit = int.MaxValue;
 	options.MultipartHeadersLengthLimit = int.MaxValue;
 });
@@ -60,9 +88,7 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddScoped<IEmailService, EmailService>();
 
-var storageProvider = builder.Configuration["Storage:Provider"];
-
-if (string.Equals(storageProvider, "Cloudinary", StringComparison.OrdinalIgnoreCase))
+if (storageOptions.UseCloudinary)
 {
 	builder.Services.AddScoped<IFileStorageService, CloudinaryFileStorageService>();
 }
@@ -183,14 +209,7 @@ builder.Services.AddRateLimiter(options =>
 	});
 });
 
-var frontendUrl = builder.Configuration["Frontend:Url"]?.TrimEnd('/');
-
-var allowedOrigins = new List<string>();
-
-if (!string.IsNullOrWhiteSpace(frontendUrl))
-{
-	allowedOrigins.Add(frontendUrl);
-}
+var allowedOrigins = frontendOptions.GetAllowedOrigins();
 
 builder.Services.AddCors(options =>
 {
