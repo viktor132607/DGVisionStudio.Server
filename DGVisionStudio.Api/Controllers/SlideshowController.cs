@@ -76,7 +76,7 @@ internal static class HomeSlideshowSettingsHelper
 
 	public static IQueryable<PortfolioImage> GetAvailableImagesQuery(AppDbContext context) =>
 		context.PortfolioImages
-			.Include(x => x.PortfolioAlbum)
+			.Include(x => x.PortfolioAlbum!)
 			.ThenInclude(x => x.PortfolioCategory)
 			.Where(x =>
 				x.IsPublished &&
@@ -268,7 +268,7 @@ public class PortfolioSlideshowController : ControllerBase
 		var selectedById = selectedImages.ToDictionary(x => x.Id);
 		var orderedItems = selectedIds
 			.Select((id, index) => selectedById.TryGetValue(id, out var image) ? HomeSlideshowSettingsHelper.ToDto(image, true, index + 1) : null)
-			.Where(x => x != null)
+			.OfType<SlideshowImageDto>()
 			.ToList();
 
 		return Ok(orderedItems);
@@ -315,7 +315,7 @@ public class AdminSlideshowController : ControllerBase
 		var currentIdSet = currentIds.ToHashSet();
 		var selectedImages = currentIds
 			.Select((id, index) => availableById.TryGetValue(id, out var image) ? HomeSlideshowSettingsHelper.ToDto(image, true, index + 1) : null)
-			.Where(x => x != null)
+			.OfType<SlideshowImageDto>()
 			.ToList();
 		var allImages = availableImages.Select(image =>
 		{
@@ -326,9 +326,9 @@ public class AdminSlideshowController : ControllerBase
 
 		return Ok(new AdminSlideshowResponse
 		{
-			SelectedImages = selectedImages!,
+			SelectedImages = selectedImages,
 			AvailableImages = allImages,
-			ImageIds = selectedImages!.Select(x => x.Id).ToList(),
+			ImageIds = selectedImages.Select(x => x.Id).ToList(),
 			IntroVideoUrl = await HomeSlideshowSettingsHelper.GetIntroVideoUrlAsync(_context),
 			UseDefaultInterval = timing.UseDefaultInterval,
 			IntervalMs = timing.IntervalMs,
@@ -379,55 +379,42 @@ public class AdminSlideshowController : ControllerBase
 		if (file.Length > MaxIntroVideoUploadSizeBytes) return BadRequest(new { message = "Видеото е твърде голямо. Максимумът е 100MB." });
 		if (!IsAllowedVideo(file)) return BadRequest(new { message = "Позволени са само видео файлове: mp4, mov, webm, m4v." });
 
-		var oldVideoUrl = await HomeSlideshowSettingsHelper.GetIntroVideoUrlAsync(_context);
-		var uploadsFolder = GetSlideshowUploadFolder();
-		Directory.CreateDirectory(uploadsFolder);
-		var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-		var fileName = $"intro-{Guid.NewGuid():N}{extension}";
-		var filePath = Path.Combine(uploadsFolder, fileName);
+		var webRoot = _environment.WebRootPath;
+		if (string.IsNullOrWhiteSpace(webRoot)) webRoot = Path.Combine(_environment.ContentRootPath, "wwwroot");
 
-		await using (var stream = System.IO.File.Create(filePath))
+		var relativeDirectory = Path.Combine("uploads", "portfolio");
+		var directory = Path.Combine(webRoot, relativeDirectory);
+		Directory.CreateDirectory(directory);
+
+		var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+		var fileName = $"home-intro-{Guid.NewGuid():N}{extension}";
+		var path = Path.Combine(directory, fileName);
+
+		await using (var stream = System.IO.File.Create(path))
 		{
 			await file.CopyToAsync(stream);
 		}
 
-		var videoUrl = $"/uploads/slideshow/{fileName}";
-		await HomeSlideshowSettingsHelper.SaveIntroVideoUrlAsync(_context, videoUrl);
+		var relativeUrl = $"/{relativeDirectory.Replace("\\", "/")}/{fileName}";
+		await HomeSlideshowSettingsHelper.SaveIntroVideoUrlAsync(_context, relativeUrl);
 		await _context.SaveChangesAsync();
-		DeleteLocalUpload(oldVideoUrl);
-		return Ok(new SlideshowIntroVideoResponse { VideoUrl = videoUrl });
+
+		return Ok(new SlideshowIntroVideoResponse { VideoUrl = relativeUrl });
 	}
 
 	[HttpDelete("video")]
 	public async Task<IActionResult> DeleteIntroVideo()
 	{
-		var oldVideoUrl = await HomeSlideshowSettingsHelper.GetIntroVideoUrlAsync(_context);
 		await HomeSlideshowSettingsHelper.SaveIntroVideoUrlAsync(_context, null);
 		await _context.SaveChangesAsync();
-		DeleteLocalUpload(oldVideoUrl);
 		return NoContent();
 	}
 
 	private static bool IsAllowedVideo(IFormFile file)
 	{
-		var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
 		var allowedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".mp4", ".mov", ".webm", ".m4v" };
-		return allowedExtensions.Contains(extension) && file.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase);
-	}
-
-	private string GetSlideshowUploadFolder()
-	{
-		var webRootPath = _environment.WebRootPath;
-		if (string.IsNullOrWhiteSpace(webRootPath)) webRootPath = Path.Combine(_environment.ContentRootPath, "wwwroot");
-		return Path.Combine(webRootPath, "uploads", "slideshow");
-	}
-
-	private void DeleteLocalUpload(string? url)
-	{
-		if (string.IsNullOrWhiteSpace(url) || !url.StartsWith("/uploads/slideshow/", StringComparison.OrdinalIgnoreCase)) return;
-		var fileName = Path.GetFileName(url);
-		if (string.IsNullOrWhiteSpace(fileName)) return;
-		var path = Path.Combine(GetSlideshowUploadFolder(), fileName);
-		if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
+		var allowedContentTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "video/mp4", "video/quicktime", "video/webm", "video/x-m4v" };
+		var extension = Path.GetExtension(file.FileName);
+		return allowedExtensions.Contains(extension) || allowedContentTypes.Contains(file.ContentType ?? string.Empty);
 	}
 }
