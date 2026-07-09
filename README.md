@@ -1,5 +1,8 @@
 # DG Vision Studio Server
 
+[![Server CI](https://github.com/viktor132607/DGVisionStudio.Server/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/viktor132607/DGVisionStudio.Server/actions/workflows/ci.yml)
+[![Backend tests](https://github.com/viktor132607/DGVisionStudio.Server/actions/workflows/backend-tests.yml/badge.svg?branch=main)](https://github.com/viktor132607/DGVisionStudio.Server/actions/workflows/backend-tests.yml)
+
 ASP.NET Core Web API for DG Vision Studio, a photography portfolio and client gallery platform.
 
 ## Tech stack
