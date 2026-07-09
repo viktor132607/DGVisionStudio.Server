@@ -36,3 +36,4 @@ jobs:
         with:
           name: backend-test-results
           path: TestResults
+          if-no-files-found: ignore
