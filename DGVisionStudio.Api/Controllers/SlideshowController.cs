@@ -1,3 +1,4 @@
+using DGVisionStudio.Api.Models;
 using DGVisionStudio.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -58,7 +59,7 @@ public class AdminSlideshowController(IHomeSlideshowService slideshowService) : 
 		}
 		catch (SlideshowValidationException ex)
 		{
-			return BadRequest(new { message = ex.Message });
+			return ApiError.Validation(ex.Message, HttpContext.TraceIdentifier);
 		}
 	}
 
