@@ -80,6 +80,33 @@ GET /api/health/ready
 
 `/api/health/ready` returns `503 Service Unavailable` when the API cannot connect to the configured PostgreSQL database.
 
+## API error format
+
+Controlled API errors use a standard response shape:
+
+```json
+{
+  "statusCode": 400,
+  "code": "ValidationError",
+  "message": "Invalid request.",
+  "traceId": "request-trace-id",
+  "details": null
+}
+```
+
+Common error codes:
+
+```text
+ValidationError
+Unauthorized
+Forbidden
+NotFound
+Conflict
+UnexpectedError
+```
+
+In production, unhandled exception details are not returned to the client. The `traceId` can be used to match client errors with server logs.
+
 ## Required configuration
 
 Set these values in local user secrets, environment variables, or deployment settings:
