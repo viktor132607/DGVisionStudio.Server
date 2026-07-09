@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DGVisionStudio.Api.Models;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
@@ -63,5 +64,35 @@ public sealed class ApiErrorTests
         response.Message.Should().Be("Conflict.");
         response.TraceId.Should().Be("trace-4");
         response.Details.Should().Be("Details");
+    }
+
+    [Fact]
+    public async Task ApiErrorResponseWriter_WritesStandardJsonPayload()
+    {
+        var context = new DefaultHttpContext
+        {
+            TraceIdentifier = "trace-writer"
+        };
+        context.Response.Body = new MemoryStream();
+
+        await ApiErrorResponseWriter.WriteAsync(
+            context,
+            StatusCodes.Status403Forbidden,
+            ApiErrorCodes.Forbidden,
+            "Forbidden.");
+
+        context.Response.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
+        context.Response.ContentType.Should().Be("application/json");
+        context.Response.Body.Position = 0;
+
+        var response = await JsonSerializer.DeserializeAsync<ApiErrorResponse>(
+            context.Response.Body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        response.Should().NotBeNull();
+        response!.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
+        response.Code.Should().Be(ApiErrorCodes.Forbidden);
+        response.Message.Should().Be("Forbidden.");
+        response.TraceId.Should().Be("trace-writer");
     }
 }
