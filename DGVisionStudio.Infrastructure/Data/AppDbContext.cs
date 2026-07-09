@@ -14,6 +14,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 	public DbSet<EmailLog> EmailLogs => Set<EmailLog>();
 	public DbSet<Service> Services => Set<Service>();
 	public DbSet<Testimonial> Testimonials => Set<Testimonial>();
+	public DbSet<PricingItem> PricingItems => Set<PricingItem>();
 	public DbSet<PortfolioCategory> PortfolioCategories => Set<PortfolioCategory>();
 	public DbSet<PortfolioAlbum> PortfolioAlbums => Set<PortfolioAlbum>();
 	public DbSet<PortfolioImage> PortfolioImages => Set<PortfolioImage>();
@@ -87,6 +88,20 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 			entity.Property(x => x.Content).IsRequired().HasMaxLength(2000);
 			entity.HasIndex(x => x.DisplayOrder);
 			entity.HasIndex(x => x.IsPublished);
+		});
+
+		builder.Entity<PricingItem>(entity =>
+		{
+			entity.HasKey(x => x.Id);
+			entity.Property(x => x.Title).IsRequired().HasMaxLength(150);
+			entity.Property(x => x.Description).IsRequired().HasMaxLength(1200);
+			entity.Property(x => x.PricingMode).IsRequired().HasMaxLength(40);
+			entity.Property(x => x.PriceText).HasMaxLength(150);
+			entity.Property(x => x.IsActive).HasDefaultValue(true);
+			entity.Property(x => x.CreatedAtUtc).HasDefaultValueSql("NOW()");
+			entity.HasIndex(x => x.DisplayOrder);
+			entity.HasIndex(x => x.IsActive);
+			entity.HasIndex(x => x.PricingMode);
 		});
 
 		builder.Entity<PortfolioCategory>(entity =>
