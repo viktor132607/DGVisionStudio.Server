@@ -1,5 +1,6 @@
 using DGVisionStudio.Api.Configuration;
 using DGVisionStudio.Api.Middleware;
+using DGVisionStudio.Api.Models;
 using DGVisionStudio.Domain.Entities;
 using DGVisionStudio.Infrastructure.Data;
 using DGVisionStudio.Infrastructure.Services;
@@ -130,8 +131,11 @@ builder.Services.ConfigureApplicationCookie(options =>
 	{
 		if (context.Request.Path.StartsWithSegments("/api"))
 		{
-			context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-			return Task.CompletedTask;
+			return ApiErrorResponseWriter.WriteAsync(
+				context.HttpContext,
+				StatusCodes.Status401Unauthorized,
+				ApiErrorCodes.Unauthorized,
+				"Unauthorized.");
 		}
 
 		context.Response.Redirect(context.RedirectUri);
@@ -142,8 +146,11 @@ builder.Services.ConfigureApplicationCookie(options =>
 	{
 		if (context.Request.Path.StartsWithSegments("/api"))
 		{
-			context.Response.StatusCode = StatusCodes.Status403Forbidden;
-			return Task.CompletedTask;
+			return ApiErrorResponseWriter.WriteAsync(
+				context.HttpContext,
+				StatusCodes.Status403Forbidden,
+				ApiErrorCodes.Forbidden,
+				"Forbidden.");
 		}
 
 		context.Response.Redirect(context.RedirectUri);
@@ -161,6 +168,14 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 builder.Services.AddRateLimiter(options =>
 {
 	options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+	options.OnRejected = async (context, cancellationToken) =>
+	{
+		await ApiErrorResponseWriter.WriteAsync(
+			context.HttpContext,
+			StatusCodes.Status429TooManyRequests,
+			"RateLimitExceeded",
+			"Too many requests.");
+	};
 
 	options.AddFixedWindowLimiter("auth", limiter =>
 	{
