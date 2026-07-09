@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using DGVisionStudio.Api.Models;
+﻿using DGVisionStudio.Api.Models;
 
 namespace DGVisionStudio.Api.Middleware;
 
@@ -51,25 +50,12 @@ public class GlobalExceptionHandlingMiddleware
 			code,
 			context.TraceIdentifier);
 
-		context.Response.Clear();
-		context.Response.StatusCode = statusCode;
-		context.Response.ContentType = "application/json";
-
-		var response = new ApiErrorResponse
-		{
-			StatusCode = statusCode,
-			Code = code,
-			Message = GetPublicMessage(statusCode),
-			TraceId = context.TraceIdentifier,
-			Details = _environment.IsDevelopment() ? exception.Message : null
-		};
-
-		var json = JsonSerializer.Serialize(response, new JsonSerializerOptions
-		{
-			PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-		});
-
-		await context.Response.WriteAsync(json);
+		await ApiErrorResponseWriter.WriteAsync(
+			context,
+			statusCode,
+			code,
+			GetPublicMessage(statusCode),
+			_environment.IsDevelopment() ? exception.Message : null);
 	}
 
 	private static int GetStatusCode(Exception exception)
