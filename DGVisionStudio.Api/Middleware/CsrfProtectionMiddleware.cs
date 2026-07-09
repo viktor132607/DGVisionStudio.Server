@@ -1,4 +1,5 @@
 ﻿using System.Security.Cryptography;
+using DGVisionStudio.Api.Models;
 
 namespace DGVisionStudio.Api.Middleware;
 
@@ -59,15 +60,11 @@ public class CsrfProtectionMiddleware
 				context.Request.Path,
 				context.TraceIdentifier);
 
-			context.Response.StatusCode = StatusCodes.Status403Forbidden;
-			context.Response.ContentType = "application/json";
-
-			await context.Response.WriteAsJsonAsync(new
-			{
-				statusCode = StatusCodes.Status403Forbidden,
-				message = "Invalid CSRF token.",
-				traceId = context.TraceIdentifier
-			});
+			await ApiErrorResponseWriter.WriteAsync(
+				context,
+				StatusCodes.Status403Forbidden,
+				ApiErrorCodes.Forbidden,
+				"Invalid CSRF token.");
 
 			return;
 		}
