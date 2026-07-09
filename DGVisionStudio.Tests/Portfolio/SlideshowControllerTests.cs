@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DGVisionStudio.Api.Models;
 using DGVisionStudio.Api.Services;
 using DGVisionStudio.Domain.Entities;
 using DGVisionStudio.Infrastructure.Controllers;
@@ -145,7 +146,9 @@ public sealed class SlideshowControllerTests
             ContentType = "video/mp4"
         });
 
-        result.Should().BeOfType<BadRequestObjectResult>();
+        var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        var response = badRequestResult.Value.Should().BeOfType<ApiErrorResponse>().Subject;
+        response.Code.Should().Be(ApiErrorCodes.ValidationError);
     }
 
     private static async Task<PortfolioAlbum> SeedVisibleAlbum(AppDbContext context)
@@ -169,7 +172,13 @@ public sealed class SlideshowControllerTests
 
     private static AdminSlideshowController CreateAdminController(AppDbContext context)
     {
-        return new AdminSlideshowController(CreateService(context));
+        return new AdminSlideshowController(CreateService(context))
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
     }
 
     private static HomeSlideshowService CreateService(AppDbContext context)
