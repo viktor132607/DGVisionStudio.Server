@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using Serilog;
@@ -74,6 +75,8 @@ builder.Services.AddControllers()
 	{
 		options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
 	});
+
+builder.Services.Configure<ApiBehaviorOptions>(ApiBehaviorOptionsConfiguration.Configure);
 
 builder.Services.Configure<FormOptions>(options =>
 {
