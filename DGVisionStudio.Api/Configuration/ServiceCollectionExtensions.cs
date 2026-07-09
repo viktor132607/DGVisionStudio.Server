@@ -15,6 +15,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IPricingService, PricingService>();
         services.AddScoped<IHomeSlideshowService, HomeSlideshowService>();
+        services.AddScoped<IPrivacyService, PrivacyService>();
 
         if (storageOptions.UseCloudinary)
         {
