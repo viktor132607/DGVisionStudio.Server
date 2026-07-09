@@ -1,4 +1,5 @@
 using DGVisionStudio.Api.Controllers;
+using DGVisionStudio.Api.Models;
 using DGVisionStudio.Api.Services;
 using DGVisionStudio.Domain.Entities;
 using DGVisionStudio.Tests.TestSupport;
@@ -16,7 +17,9 @@ public sealed class PrivacyControllerTests
 
         var result = await controller.Export();
 
-        result.Should().BeOfType<UnauthorizedResult>();
+        var unauthorizedResult = result.Should().BeOfType<UnauthorizedObjectResult>().Subject;
+        var response = unauthorizedResult.Value.Should().BeOfType<ApiErrorResponse>().Subject;
+        response.Code.Should().Be(ApiErrorCodes.Unauthorized);
     }
 
     [Fact]
@@ -46,7 +49,9 @@ public sealed class PrivacyControllerTests
 
         var result = await controller.DeleteAccount(new DeleteAccountRequest { Confirm = false });
 
-        result.Should().BeOfType<BadRequestObjectResult>();
+        var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        var response = badRequestResult.Value.Should().BeOfType<ApiErrorResponse>().Subject;
+        response.Code.Should().Be(ApiErrorCodes.ValidationError);
     }
 
     [Fact]
