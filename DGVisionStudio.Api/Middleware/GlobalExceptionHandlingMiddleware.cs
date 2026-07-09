@@ -1,5 +1,4 @@
-﻿using System.Net;
-using System.Text.Json;
+﻿using System.Text.Json;
 using DGVisionStudio.Api.Models;
 
 namespace DGVisionStudio.Api.Middleware;
@@ -41,13 +40,15 @@ public class GlobalExceptionHandlingMiddleware
 		}
 
 		var statusCode = GetStatusCode(exception);
+		var code = GetErrorCode(statusCode);
 
 		_logger.LogError(
 			exception,
-			"Unhandled exception. Method: {Method}, Path: {Path}, StatusCode: {StatusCode}, TraceId: {TraceId}",
+			"Unhandled exception. Method: {Method}, Path: {Path}, StatusCode: {StatusCode}, ErrorCode: {ErrorCode}, TraceId: {TraceId}",
 			context.Request.Method,
 			context.Request.Path,
 			statusCode,
+			code,
 			context.TraceIdentifier);
 
 		context.Response.Clear();
@@ -57,9 +58,10 @@ public class GlobalExceptionHandlingMiddleware
 		var response = new ApiErrorResponse
 		{
 			StatusCode = statusCode,
+			Code = code,
 			Message = GetPublicMessage(statusCode),
 			TraceId = context.TraceIdentifier,
-			Details = exception.Message
+			Details = _environment.IsDevelopment() ? exception.Message : null
 		};
 
 		var json = JsonSerializer.Serialize(response, new JsonSerializerOptions
@@ -79,6 +81,18 @@ public class GlobalExceptionHandlingMiddleware
 			ArgumentException => StatusCodes.Status400BadRequest,
 			InvalidOperationException => StatusCodes.Status400BadRequest,
 			_ => StatusCodes.Status500InternalServerError
+		};
+	}
+
+	private static string GetErrorCode(int statusCode)
+	{
+		return statusCode switch
+		{
+			400 => ApiErrorCodes.ValidationError,
+			401 => ApiErrorCodes.Unauthorized,
+			403 => ApiErrorCodes.Forbidden,
+			404 => ApiErrorCodes.NotFound,
+			_ => ApiErrorCodes.UnexpectedError
 		};
 	}
 
