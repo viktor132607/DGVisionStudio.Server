@@ -4,6 +4,7 @@ using DGVisionStudio.Api.Services;
 using DGVisionStudio.Domain.Entities;
 using DGVisionStudio.Tests.TestSupport;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DGVisionStudio.Tests.Privacy;
@@ -13,7 +14,7 @@ public sealed class PrivacyControllerTests
     [Fact]
     public async Task Export_ReturnsUnauthorized_WhenUserIsMissing()
     {
-        var controller = new PrivacyController(new TestUserManager(user: null), new StubPrivacyService());
+        var controller = CreateController(user: null, new StubPrivacyService());
 
         var result = await controller.Export();
 
@@ -33,7 +34,7 @@ public sealed class PrivacyControllerTests
             [],
             [],
             []);
-        var controller = new PrivacyController(new TestUserManager(user), new StubPrivacyService(export));
+        var controller = CreateController(user, new StubPrivacyService(export));
 
         var result = await controller.Export();
 
@@ -45,7 +46,7 @@ public sealed class PrivacyControllerTests
     public async Task DeleteAccount_ReturnsBadRequest_WhenNotConfirmed()
     {
         var user = TestUsers.Create("user@example.com", "user-1");
-        var controller = new PrivacyController(new TestUserManager(user), new StubPrivacyService());
+        var controller = CreateController(user, new StubPrivacyService());
 
         var result = await controller.DeleteAccount(new DeleteAccountRequest { Confirm = false });
 
@@ -58,11 +59,22 @@ public sealed class PrivacyControllerTests
     public async Task DeleteAccount_ReturnsNoContent_WhenConfirmed()
     {
         var user = TestUsers.Create("user@example.com", "user-1");
-        var controller = new PrivacyController(new TestUserManager(user), new StubPrivacyService(anonymizeResult: true));
+        var controller = CreateController(user, new StubPrivacyService(anonymizeResult: true));
 
         var result = await controller.DeleteAccount(new DeleteAccountRequest { Confirm = true });
 
         result.Should().BeOfType<NoContentResult>();
+    }
+
+    private static PrivacyController CreateController(ApplicationUser? user, IPrivacyService privacyService)
+    {
+        return new PrivacyController(new TestUserManager(user), privacyService)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
     }
 
     private sealed class StubPrivacyService(
