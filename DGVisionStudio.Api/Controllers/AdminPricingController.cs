@@ -1,3 +1,4 @@
+using DGVisionStudio.Api.Models;
 using DGVisionStudio.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -24,7 +25,7 @@ public class AdminPricingController(IPricingService pricingService) : Controller
         }
         catch (PricingValidationException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return ApiError.Validation(ex.Message, HttpContext.TraceIdentifier);
         }
     }
 
@@ -34,11 +35,11 @@ public class AdminPricingController(IPricingService pricingService) : Controller
         try
         {
             var updatedItem = await pricingService.UpdateAsync(id, dto);
-            return updatedItem is null ? NotFound() : Ok(updatedItem);
+            return updatedItem is null ? ApiError.NotFound(traceId: HttpContext.TraceIdentifier) : Ok(updatedItem);
         }
         catch (PricingValidationException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return ApiError.Validation(ex.Message, HttpContext.TraceIdentifier);
         }
     }
 
@@ -51,14 +52,14 @@ public class AdminPricingController(IPricingService pricingService) : Controller
         }
         catch (PricingValidationException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return ApiError.Validation(ex.Message, HttpContext.TraceIdentifier);
         }
     }
 
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
-        return await pricingService.DeleteAsync(id) ? NoContent() : NotFound();
+        return await pricingService.DeleteAsync(id) ? NoContent() : ApiError.NotFound(traceId: HttpContext.TraceIdentifier);
     }
 }
 
