@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DGVisionStudio.Api.Services;
 using DGVisionStudio.Domain.Entities;
 using DGVisionStudio.Infrastructure.Controllers;
 using DGVisionStudio.Infrastructure.Data;
@@ -24,7 +25,7 @@ public sealed class SlideshowControllerTests
         await context.SaveChangesAsync();
         context.ChangeTracker.Clear();
 
-        var controller = new PortfolioSlideshowController(context);
+        var controller = new PortfolioSlideshowController(CreateService(context));
 
         var result = await controller.GetSlideshowImages();
 
@@ -51,7 +52,7 @@ public sealed class SlideshowControllerTests
         await context.SaveChangesAsync();
         context.ChangeTracker.Clear();
 
-        var controller = new PortfolioSlideshowController(context);
+        var controller = new PortfolioSlideshowController(CreateService(context));
 
         var result = await controller.GetSlideshowImages();
 
@@ -74,7 +75,7 @@ public sealed class SlideshowControllerTests
         await context.SaveChangesAsync();
         context.ChangeTracker.Clear();
 
-        var controller = new PortfolioSlideshowController(context);
+        var controller = new PortfolioSlideshowController(CreateService(context));
 
         var result = await controller.GetIntroVideo();
 
@@ -95,7 +96,7 @@ public sealed class SlideshowControllerTests
         await context.SaveChangesAsync();
         context.ChangeTracker.Clear();
 
-        var controller = new PortfolioSlideshowController(context);
+        var controller = new PortfolioSlideshowController(CreateService(context));
 
         var result = await controller.GetSettings();
 
@@ -168,7 +169,12 @@ public sealed class SlideshowControllerTests
 
     private static AdminSlideshowController CreateAdminController(AppDbContext context)
     {
-        return new AdminSlideshowController(context, new TestWebHostEnvironment());
+        return new AdminSlideshowController(CreateService(context));
+    }
+
+    private static HomeSlideshowService CreateService(AppDbContext context)
+    {
+        return new HomeSlideshowService(context, new TestWebHostEnvironment());
     }
 
     private static AppDbContext CreateContext()
