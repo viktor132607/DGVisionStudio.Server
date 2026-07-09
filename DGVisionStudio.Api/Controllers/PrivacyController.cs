@@ -1,3 +1,4 @@
+using DGVisionStudio.Api.Models;
 using DGVisionStudio.Api.Services;
 using DGVisionStudio.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -18,23 +19,23 @@ public sealed class PrivacyController(
     {
         var user = await userManager.GetUserAsync(User);
         if (user is null)
-            return Unauthorized();
+            return ApiError.Unauthorized(traceId: HttpContext.TraceIdentifier);
 
         var export = await privacyService.ExportUserDataAsync(user.Id);
-        return export is null ? NotFound() : Ok(export);
+        return export is null ? ApiError.NotFound(traceId: HttpContext.TraceIdentifier) : Ok(export);
     }
 
     [HttpDelete("account")]
     public async Task<IActionResult> DeleteAccount([FromBody] DeleteAccountRequest request)
     {
         if (!request.Confirm)
-            return BadRequest(new { message = "Account deletion must be explicitly confirmed." });
+            return ApiError.Validation("Account deletion must be explicitly confirmed.", HttpContext.TraceIdentifier);
 
         var user = await userManager.GetUserAsync(User);
         if (user is null)
-            return Unauthorized();
+            return ApiError.Unauthorized(traceId: HttpContext.TraceIdentifier);
 
         var anonymized = await privacyService.AnonymizeUserDataAsync(user.Id);
-        return anonymized ? NoContent() : NotFound();
+        return anonymized ? NoContent() : ApiError.NotFound(traceId: HttpContext.TraceIdentifier);
     }
 }
