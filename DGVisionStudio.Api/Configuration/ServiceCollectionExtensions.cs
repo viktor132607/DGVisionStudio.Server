@@ -31,6 +31,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAdminStatisticsService, AdminStatisticsService>();
         services.AddScoped<ITestimonialService, TestimonialService>();
         services.AddScoped<IHealthService, HealthService>();
+        services.AddScoped<IPrivacyEndpointService, PrivacyEndpointService>();
 
         if (storageOptions.UseCloudinary)
         {
