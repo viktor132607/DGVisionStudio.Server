@@ -1,9 +1,11 @@
+using DGVisionStudio.Api.Extensions;
+using DGVisionStudio.Api.Services;
+using DGVisionStudio.Api.Services.Interfaces;
 using DGVisionStudio.Application.DTOs;
-using DGVisionStudio.Domain.Enums;
 using DGVisionStudio.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DGVisionStudio.Infrastructure.Controllers;
 
@@ -12,62 +14,36 @@ namespace DGVisionStudio.Infrastructure.Controllers;
 [Route("api/admin/contact-requests")]
 public class AdminContactRequestsController : ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly IContactRequestService _service;
+
+    [ActivatorUtilitiesConstructor]
+    public AdminContactRequestsController(IContactRequestService service)
+    {
+        _service = service;
+    }
 
     public AdminContactRequestsController(AppDbContext context)
+        : this(new ContactRequestService(context))
     {
-        _context = context;
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
-    {
-        var items = await _context.ContactRequests.OrderByDescending(x => x.CreatedAtUtc).ToListAsync();
-        return Ok(items);
-    }
+    public async Task<IActionResult> GetAll() =>
+        this.ToActionResult(await _service.GetAllAsync());
 
     [HttpGet("{id:guid}")]
-    public async Task<IActionResult> Get(Guid id)
-    {
-        var item = await _context.ContactRequests.FindAsync(id);
-        return item is null ? NotFound() : Ok(item);
-    }
+    public async Task<IActionResult> Get(Guid id) =>
+        this.ToActionResult(await _service.GetAsync(id));
 
     [HttpPut("{id:guid}")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateContactRequestDto dto)
-    {
-        var item = await _context.ContactRequests.FindAsync(id);
-        if (item == null) return NotFound();
-
-        item.Status = dto.Status;
-        item.AdminComment = dto.AdminComment;
-        item.IsArchived = dto.IsArchived;
-        item.UpdatedAtUtc = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
-        return Ok(item);
-    }
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateContactRequestDto dto) =>
+        this.ToActionResult(await _service.UpdateAsync(id, dto));
 
     [HttpPut("{id:guid}/status")]
-    public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateContactRequestDto dto)
-    {
-        var item = await _context.ContactRequests.FindAsync(id);
-        if (item == null) return NotFound();
-
-        item.Status = dto.Status;
-        item.IsArchived = dto.Status is ContactRequestStatus.Completed or ContactRequestStatus.Rejected;
-        item.UpdatedAtUtc = DateTime.UtcNow;
-
-        await _context.SaveChangesAsync();
-        return Ok(item);
-    }
+    public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateContactRequestDto dto) =>
+        this.ToActionResult(await _service.UpdateStatusAsync(id, dto));
 
     [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id)
-    {
-        var item = await _context.ContactRequests.FindAsync(id);
-        if (item == null) return NotFound();
-        _context.ContactRequests.Remove(item);
-        await _context.SaveChangesAsync();
-        return NoContent();
-    }
+    public async Task<IActionResult> Delete(Guid id) =>
+        this.ToActionResult(await _service.DeleteAsync(id));
 }
