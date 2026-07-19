@@ -1,6 +1,9 @@
+using DGVisionStudio.Api.Extensions;
+using DGVisionStudio.Api.Services;
+using DGVisionStudio.Api.Services.Interfaces;
 using DGVisionStudio.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DGVisionStudio.Infrastructure.Controllers;
 
@@ -8,29 +11,24 @@ namespace DGVisionStudio.Infrastructure.Controllers;
 [Route("api/services")]
 public class ServicesController : ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly IServiceCatalogService _service;
+
+    [ActivatorUtilitiesConstructor]
+    public ServicesController(IServiceCatalogService service)
+    {
+        _service = service;
+    }
 
     public ServicesController(AppDbContext context)
+        : this(new ServiceCatalogService(context))
     {
-        _context = context;
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
-    {
-        var items = await _context.Services
-            .Where(x => x.IsActive)
-            .OrderBy(x => x.DisplayOrder)
-            .ThenBy(x => x.Id)
-            .ToListAsync();
-
-        return Ok(items);
-    }
+    public async Task<IActionResult> GetAll() =>
+        this.ToActionResult(await _service.GetActiveAsync());
 
     [HttpGet("{id:int}")]
-    public async Task<IActionResult> GetById(int id)
-    {
-        var item = await _context.Services.FindAsync(id);
-        return item is null ? NotFound() : Ok(item);
-    }
+    public async Task<IActionResult> GetById(int id) =>
+        this.ToActionResult(await _service.GetPublicByIdAsync(id));
 }
