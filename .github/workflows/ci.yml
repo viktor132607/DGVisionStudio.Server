@@ -26,6 +26,9 @@ jobs:
       - name: Build
         run: dotnet build --no-restore --configuration Release
 
+      - name: Wait for production deployment
+        run: sleep 90
+
       - name: Diagnose production slideshow endpoints
         shell: bash
         run: |
