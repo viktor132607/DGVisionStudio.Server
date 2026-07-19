@@ -35,8 +35,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<AdminGalleryMediaMutationService>();
         services.AddScoped<IAdminGalleryMediaManagementService, AdminGalleryMediaManagementService>();
 
-        services.AddScoped<IAdminClientGalleryManagementService, AdminClientGalleryManagementService>();
+        services.AddScoped<AdminPrintRequestQueryService>();
+        services.AddScoped<AdminPrintRequestCommandService>();
         services.AddScoped<IAdminPrintRequestService, AdminPrintRequestService>();
+
+        services.AddScoped<IAdminClientGalleryManagementService, AdminClientGalleryManagementService>();
         services.AddScoped<IAdminUserService, AdminUserService>();
         services.AddScoped<IClientGalleryEndpointService, ClientGalleryEndpointService>();
         services.AddScoped<IAdminCalendarService, AdminCalendarService>();
