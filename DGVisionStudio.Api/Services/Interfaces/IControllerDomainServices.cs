@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using DGVisionStudio.Application.DTOs;
-using DGVisionStudio.Application.DTOs.Account;
 using DGVisionStudio.Application.DTOs.ClientGalleries;
 using DGVisionStudio.Application.DTOs.Pagination;
 using DGVisionStudio.Application.DTOs.PrintRequests;
@@ -104,7 +103,7 @@ public interface IPrivacyEndpointService
 
 public interface IAccountEndpointService
 {
-    Task<ControllerServiceResult> DeleteAccountAsync(ClaimsPrincipal principal, DeleteAccountRequest request);
+    Task<ControllerServiceResult> DeleteAccountAsync(ClaimsPrincipal principal, string password);
 }
 
 public interface IAdminAuditLogQueryService
