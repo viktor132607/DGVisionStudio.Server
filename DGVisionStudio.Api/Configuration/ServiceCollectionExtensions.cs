@@ -25,6 +25,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PortfolioImageAdminService>();
         services.AddScoped<IAdminPortfolioService, AdminPortfolioService>();
 
+        services.AddScoped<AdminGalleryMediaMetadataService>();
+        services.AddScoped<AdminGalleryMediaDownloadService>();
+        services.AddScoped<AdminGalleryMediaUploadService>();
+        services.AddScoped<AdminGalleryMediaMutationService>();
+        services.AddScoped<IAdminGalleryMediaManagementService, AdminGalleryMediaManagementService>();
+
         services.AddScoped<IAdminClientGalleryManagementService, AdminClientGalleryManagementService>();
         services.AddScoped<IAdminPrintRequestService, AdminPrintRequestService>();
         services.AddScoped<IAdminUserService, AdminUserService>();
@@ -41,7 +47,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAdminAuditLogQueryService, AdminAuditLogQueryService>();
         services.AddScoped<IAdminGalleryArchiveService, AdminGalleryArchiveService>();
         services.AddScoped<IAdminGalleryAccessEndpointService, AdminGalleryAccessEndpointService>();
-        services.AddScoped<IAdminGalleryMediaManagementService, AdminGalleryMediaManagementService>();
         services.AddScoped<IClientPrintRequestEndpointService, ClientPrintRequestEndpointService>();
         services.AddScoped<ICsrfTokenService, CsrfTokenService>();
         services.AddScoped<IDebugUserService, DebugUserService>();
