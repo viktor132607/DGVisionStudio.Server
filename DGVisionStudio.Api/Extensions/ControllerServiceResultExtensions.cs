@@ -13,6 +13,7 @@ public static class ControllerServiceResultExtensions
             StatusCodes.Status204NoContent => controller.NoContent(),
             StatusCodes.Status400BadRequest => controller.BadRequest(result.Value),
             StatusCodes.Status401Unauthorized => controller.Unauthorized(result.Value),
+            StatusCodes.Status403Forbidden => controller.Forbid(),
             StatusCodes.Status404NotFound => result.Value is null
                 ? controller.NotFound()
                 : controller.NotFound(result.Value),
