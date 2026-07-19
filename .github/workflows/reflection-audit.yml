@@ -1,0 +1,188 @@
+name: Reflection route and DI audit
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  reflection-audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore and build
+        run: |
+          dotnet restore
+          dotnet build --no-restore --configuration Release
+
+      - name: Create reflection audit runner
+        shell: bash
+        run: |
+          mkdir -p reflection-audit/Runner
+          cat > reflection-audit/Runner/Runner.csproj <<'EOF'
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <OutputType>Exe</OutputType>
+              <TargetFramework>net10.0</TargetFramework>
+              <ImplicitUsings>enable</ImplicitUsings>
+              <Nullable>enable</Nullable>
+            </PropertyGroup>
+            <ItemGroup>
+              <FrameworkReference Include="Microsoft.AspNetCore.App" />
+              <ProjectReference Include="../../DGVisionStudio.Api/DGVisionStudio.Api.csproj" />
+            </ItemGroup>
+          </Project>
+          EOF
+
+          cat > reflection-audit/Runner/Program.cs <<'EOF'
+          using System.Reflection;
+          using DGVisionStudio.Infrastructure.Controllers;
+          using Microsoft.AspNetCore.Mvc;
+          using Microsoft.AspNetCore.Mvc.Routing;
+          using Microsoft.Extensions.DependencyInjection;
+
+          static string Combine(string? prefix, string? suffix)
+          {
+              var values = new[] { prefix, suffix }
+                  .Where(x => !string.IsNullOrWhiteSpace(x))
+                  .Select(x => x!.Trim('/'));
+              return "/" + string.Join('/', values);
+          }
+
+          var output = new List<string>();
+          var assembly = typeof(AuthController).Assembly;
+          var controllers = assembly.GetTypes()
+              .Where(t => !t.IsAbstract && typeof(ControllerBase).IsAssignableFrom(t))
+              .OrderBy(t => t.FullName)
+              .ToList();
+
+          var endpoints = new List<(string Method, string Route, string Action)>();
+          foreach (var controller in controllers)
+          {
+              var prefixes = controller.GetCustomAttributes<RouteAttribute>(inherit: true)
+                  .Select(x => x.Template)
+                  .DefaultIfEmpty(string.Empty)
+                  .ToList();
+
+              foreach (var method in controller.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly))
+              {
+                  var httpAttributes = method.GetCustomAttributes(inherit: true)
+                      .OfType<HttpMethodAttribute>()
+                      .ToList();
+                  if (httpAttributes.Count == 0)
+                      continue;
+
+                  foreach (var prefix in prefixes)
+                  foreach (var attribute in httpAttributes)
+                  foreach (var httpMethod in attribute.HttpMethods)
+                  {
+                      var route = Combine(prefix, attribute.Template)
+                          .Replace("[controller]", controller.Name.Replace("Controller", string.Empty), StringComparison.OrdinalIgnoreCase)
+                          .ToLowerInvariant();
+                      endpoints.Add((httpMethod.ToUpperInvariant(), route, $"{controller.Name}.{method.Name}"));
+                  }
+              }
+          }
+
+          output.Add($"Controller count: {controllers.Count}");
+          output.Add($"Endpoint count: {endpoints.Count}");
+          output.Add("");
+          output.Add("Duplicate HTTP method + route pairs:");
+          var duplicates = endpoints
+              .GroupBy(x => (x.Method, x.Route))
+              .Where(g => g.Count() > 1)
+              .OrderBy(g => g.Key.Method)
+              .ThenBy(g => g.Key.Route)
+              .ToList();
+          if (duplicates.Count == 0)
+          {
+              output.Add("NONE");
+          }
+          else
+          {
+              foreach (var duplicate in duplicates)
+                  output.Add($"{duplicate.Key.Method} {duplicate.Key.Route}: {string.Join(", ", duplicate.Select(x => x.Action))}");
+          }
+
+          output.Add("");
+          output.Add("All endpoints:");
+          foreach (var endpoint in endpoints.OrderBy(x => x.Route).ThenBy(x => x.Method))
+              output.Add($"{endpoint.Method} {endpoint.Route} -> {endpoint.Action}");
+
+          File.WriteAllLines("reflection-audit/routes.txt", output);
+
+          // Verify the exact constructor shape used by ContactRequestService:
+          // one constructor's dependencies are a strict subset of the other constructor.
+          var services = new ServiceCollection();
+          services.AddSingleton<DependencyA>();
+          services.AddSingleton<DependencyB>();
+          services.AddSingleton<DependencyC>();
+          services.AddTransient<SubsetConstructorService>();
+          services.AddTransient<NonSubsetConstructorService>();
+
+          using var provider = services.BuildServiceProvider();
+          var diLines = new List<string>();
+          try
+          {
+              var resolved = provider.GetRequiredService<SubsetConstructorService>();
+              diLines.Add($"Subset constructor result: SUCCESS ({resolved.SelectedConstructor})");
+          }
+          catch (Exception exception)
+          {
+              diLines.Add($"Subset constructor result: FAILURE ({exception.GetType().Name}: {exception.Message})");
+          }
+
+          try
+          {
+              _ = provider.GetRequiredService<NonSubsetConstructorService>();
+              diLines.Add("Non-subset constructor result: UNEXPECTED SUCCESS");
+          }
+          catch (Exception exception)
+          {
+              diLines.Add($"Non-subset constructor result: EXPECTED FAILURE ({exception.GetType().Name}: {exception.Message})");
+          }
+
+          File.WriteAllLines("reflection-audit/di-constructor-behavior.txt", diLines);
+          Console.WriteLine(string.Join(Environment.NewLine, output.Take(20)));
+          Console.WriteLine(string.Join(Environment.NewLine, diLines));
+
+          internal sealed class DependencyA;
+          internal sealed class DependencyB;
+          internal sealed class DependencyC;
+
+          internal sealed class SubsetConstructorService
+          {
+              public string SelectedConstructor { get; }
+              public SubsetConstructorService(DependencyA a, DependencyB b, DependencyC c) => SelectedConstructor = "three-parameter";
+              public SubsetConstructorService(DependencyA a) => SelectedConstructor = "one-parameter";
+          }
+
+          internal sealed class NonSubsetConstructorService
+          {
+              public NonSubsetConstructorService(DependencyA a, DependencyB b) { }
+              public NonSubsetConstructorService(DependencyC c) { }
+          }
+          EOF
+
+      - name: Run reflection audit
+        run: dotnet run --project reflection-audit/Runner/Runner.csproj --configuration Release
+
+      - name: List test source files
+        shell: bash
+        run: |
+          find DGVisionStudio.Tests -type f -name '*.cs' ! -path '*/bin/*' ! -path '*/obj/*' | sort > reflection-audit/test-source-files.txt
+          grep -RhoE 'class[[:space:]]+[A-Za-z0-9_]+Tests' DGVisionStudio.Tests --include='*.cs' --exclude-dir=bin --exclude-dir=obj | sort -u > reflection-audit/test-class-names.txt || true
+
+      - name: Upload reflection audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: reflection-backend-audit
+          path: reflection-audit/*.txt
+          if-no-files-found: error
