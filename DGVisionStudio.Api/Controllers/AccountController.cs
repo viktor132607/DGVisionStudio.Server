@@ -1,7 +1,6 @@
 using DGVisionStudio.Api.Extensions;
 using DGVisionStudio.Api.Services;
 using DGVisionStudio.Api.Services.Interfaces;
-using DGVisionStudio.Application.DTOs.Account;
 using DGVisionStudio.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -31,6 +30,7 @@ public class AccountController : ControllerBase
     }
 
     [HttpDelete("delete")]
-    public async Task<IActionResult> DeleteAccount([FromBody] DeleteAccountRequest request) =>
+    public async Task<IActionResult> DeleteAccount(
+        [FromBody] DGVisionStudio.Application.DTOs.Account.DeleteAccountRequest request) =>
         this.ToActionResult(await _service.DeleteAccountAsync(User, request));
 }
