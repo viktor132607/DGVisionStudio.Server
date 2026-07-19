@@ -1,4 +1,5 @@
 using DGVisionStudio.Api.Services;
+using DGVisionStudio.Api.Services.Interfaces;
 using DGVisionStudio.Application.Interfaces;
 using DGVisionStudio.Infrastructure.Services;
 using DGVisionStudio.Infrastructure.Services.ClientGalleries;
@@ -16,6 +17,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPricingService, PricingService>();
         services.AddScoped<IHomeSlideshowService, HomeSlideshowService>();
         services.AddScoped<IPrivacyService, PrivacyService>();
+
+        services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IAdminPortfolioService, AdminPortfolioService>();
+        services.AddScoped<IAdminClientGalleryManagementService, AdminClientGalleryManagementService>();
+        services.AddScoped<IAdminPrintRequestService, AdminPrintRequestService>();
 
         if (storageOptions.UseCloudinary)
         {
