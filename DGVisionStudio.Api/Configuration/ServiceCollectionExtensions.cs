@@ -80,6 +80,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAuditLogService, AuditLogService>();
 
         services.AddScoped<IClientGalleryService, ClientGalleryService>();
+
+        services.AddScoped<ClientGalleryAdminQueryService>();
+        services.AddScoped<ClientGalleryAdminCommandService>();
         services.AddScoped<IClientGalleryAdminService, ClientGalleryAdminService>();
 
         services.AddScoped<ClientGalleryUserQueryService>();
