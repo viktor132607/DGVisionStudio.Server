@@ -22,6 +22,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IHomeSlideshowService, HomeSlideshowService>();
 
         services.AddScoped<IPrivacyService, PrivacyService>();
+
+        services.AddScoped<AuthRegistrationService>();
+        services.AddScoped<AuthSessionService>();
+        services.AddScoped<AuthPasswordService>();
         services.AddScoped<IAuthService, AuthService>();
 
         services.AddScoped<PortfolioCategoryAdminService>();
