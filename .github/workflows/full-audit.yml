@@ -1,0 +1,469 @@
+name: Full architecture and unit test audit
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build and capture warnings
+        shell: bash
+        run: |
+          mkdir -p audit
+          set +e
+          dotnet build --no-restore --configuration Release 2>&1 | tee audit/build.log
+          echo "${PIPESTATUS[0]}" > audit/build.exit
+          exit 0
+
+      - name: Run tests with coverage
+        shell: bash
+        run: |
+          set +e
+          dotnet test --no-build --configuration Release \
+            --collect:"XPlat Code Coverage" \
+            --results-directory TestResults 2>&1 | tee audit/tests.log
+          echo "${PIPESTATUS[0]}" > audit/tests.exit
+          exit 0
+
+      - name: Check package vulnerabilities and deprecations
+        shell: bash
+        run: |
+          set +e
+          dotnet list package --vulnerable --include-transitive > audit/vulnerable-packages.txt 2>&1
+          dotnet list package --deprecated > audit/deprecated-packages.txt 2>&1
+          exit 0
+
+      - name: Generate architecture and test gap report
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from __future__ import annotations
+
+          import collections
+          import pathlib
+          import re
+          import xml.etree.ElementTree as ET
+
+          root = pathlib.Path('.')
+          audit_dir = root / 'audit'
+          audit_dir.mkdir(exist_ok=True)
+
+          excluded_parts = {'bin', 'obj', '.git', 'TestResults', 'Migrations'}
+          all_cs = [p for p in root.rglob('*.cs') if not any(part in excluded_parts for part in p.parts)]
+          test_files = [p for p in all_cs if any('test' in part.lower() for part in p.parts)]
+          source_files = [p for p in all_cs if p not in test_files]
+
+          class_re = re.compile(
+              r'\b(public|internal)\s+(?:(?:sealed|static|abstract|partial)\s+)*class\s+(\w+)',
+              re.MULTILINE,
+          )
+          namespace_re = re.compile(r'\bnamespace\s+([\w.]+)')
+
+          classes: list[dict] = []
+          source_texts: dict[pathlib.Path, str] = {}
+          for path in source_files:
+              text = path.read_text(encoding='utf-8-sig', errors='replace')
+              source_texts[path] = text
+              namespace_match = namespace_re.search(text)
+              namespace = namespace_match.group(1) if namespace_match else ''
+              for match in class_re.finditer(text):
+                  name = match.group(2)
+                  classes.append({
+                      'name': name,
+                      'namespace': namespace,
+                      'full_name': f'{namespace}.{name}' if namespace else name,
+                      'path': path.as_posix(),
+                      'text': text,
+                  })
+
+          test_text_by_path = {
+              path: path.read_text(encoding='utf-8-sig', errors='replace')
+              for path in test_files
+          }
+          combined_tests = '\n'.join(test_text_by_path.values())
+
+          coverage_by_name: dict[str, float] = {}
+          coverage_by_file: dict[str, float] = {}
+          coverage_files = list(root.glob('TestResults/**/coverage.cobertura.xml'))
+          for coverage_file in coverage_files:
+              try:
+                  tree = ET.parse(coverage_file)
+              except ET.ParseError:
+                  continue
+              for node in tree.findall('.//class'):
+                  raw_name = node.attrib.get('name', '')
+                  filename = node.attrib.get('filename', '').replace('\\', '/')
+                  try:
+                      rate = float(node.attrib.get('line-rate', '0'))
+                  except ValueError:
+                      rate = 0.0
+                  simple_name = raw_name.split('.')[-1].split('+')[0].split('`')[0]
+                  if simple_name:
+                      coverage_by_name[simple_name] = max(coverage_by_name.get(simple_name, 0.0), rate)
+                  if filename:
+                      coverage_by_file[filename] = max(coverage_by_file.get(filename, 0.0), rate)
+
+          def category(item: dict) -> str:
+              name = item['name']
+              path = item['path'].lower()
+              if name.endswith('Controller'):
+                  return 'Controller'
+              if name.endswith('Middleware'):
+                  return 'Middleware'
+              if name.endswith('Validator'):
+                  return 'Validator'
+              if name.endswith('Mapper'):
+                  return 'Mapper'
+              if name.endswith('Seeder') or name.endswith('Seed'):
+                  return 'Seeder'
+              if name.endswith('DbContext'):
+                  return 'Data'
+              if name.endswith('Service') or name.endswith('Worker'):
+                  return 'Service'
+              if '/configuration/' in path or name.endswith('Configuration'):
+                  return 'Configuration'
+              return 'Other'
+
+          for item in classes:
+              name = item['name']
+              refs = []
+              pattern = re.compile(rf'\b{re.escape(name)}\b')
+              for test_path, test_text in test_text_by_path.items():
+                  if pattern.search(test_text):
+                      refs.append(test_path.as_posix())
+              item['test_refs'] = sorted(refs)
+              item['direct_test'] = bool(refs)
+              item['coverage'] = coverage_by_name.get(name)
+              item['category'] = category(item)
+
+          # Constructor and DI registration audit.
+          registration_text = '\n'.join(
+              text for path, text in source_texts.items()
+              if 'servicecollection' in path.name.lower() or 'dependencyinjection' in path.as_posix().lower()
+          )
+          multi_ctor: list[dict] = []
+          for item in classes:
+              name = item['name']
+              ctor_count = len(re.findall(rf'\bpublic\s+{re.escape(name)}\s*\(', item['text']))
+              if ctor_count <= 1:
+                  continue
+              has_factory = bool(re.search(rf'\bnew\s+{re.escape(name)}\s*\(', registration_text))
+              auto_registration = bool(re.search(
+                  rf'Add(?:Scoped|Singleton|Transient)\s*<[^;>]*(?:,\s*{re.escape(name)}|\b{re.escape(name)})\s*>',
+                  registration_text,
+              ))
+              mvc_controller = name.endswith('Controller')
+              marked_ctor = '[ActivatorUtilitiesConstructor]' in item['text']
+              risk = auto_registration and not has_factory and not mvc_controller
+              multi_ctor.append({
+                  'name': name,
+                  'path': item['path'],
+                  'constructors': ctor_count,
+                  'factory': has_factory,
+                  'automatic_registration': auto_registration,
+                  'mvc_controller': mvc_controller,
+                  'marked_constructor': marked_ctor,
+                  'risk': risk,
+              })
+
+          # Duplicate class declarations.
+          full_name_groups: dict[str, list[str]] = collections.defaultdict(list)
+          for item in classes:
+              full_name_groups[item['full_name']].append(item['path'])
+          duplicate_types = {
+              name: paths for name, paths in full_name_groups.items() if len(set(paths)) > 1
+          }
+
+          # Case-insensitive path collisions, important for Linux deployment.
+          path_groups: dict[str, list[str]] = collections.defaultdict(list)
+          for path in root.rglob('*'):
+              if path.is_file() and not any(part in excluded_parts for part in path.parts):
+                  path_groups[path.as_posix().lower()].append(path.as_posix())
+          case_collisions = {
+              key: values for key, values in path_groups.items() if len(set(values)) > 1
+          }
+
+          # Approximate duplicate HTTP route audit.
+          route_records: list[tuple[str, str, str, str]] = []
+          route_duplicates: dict[tuple[str, str], list[tuple[str, str]]] = collections.defaultdict(list)
+          for item in classes:
+              if item['category'] != 'Controller':
+                  continue
+              text = item['text']
+              class_pos = text.find(f'class {item["name"]}')
+              header = text[:class_pos] if class_pos >= 0 else text
+              route_matches = list(re.finditer(r'\[Route\("([^"]+)"\)\]', header))
+              prefix = route_matches[-1].group(1) if route_matches else ''
+              prefix = prefix.replace('[controller]', item['name'][:-10])
+              action_re = re.compile(
+                  r'\[Http(Get|Post|Put|Delete|Patch)(?:\("([^"]*)"\))?\][\s\S]{0,500}?\b(?:async\s+)?(?:Task<[^>]+>|Task|IActionResult|ActionResult(?:<[^>]+>)?|void|string)\s+(\w+)\s*\(',
+                  re.MULTILINE,
+              )
+              for match in action_re.finditer(text):
+                  method = match.group(1).upper()
+                  suffix = match.group(2) or ''
+                  action = match.group(3)
+                  route = '/'.join(x.strip('/') for x in (prefix, suffix) if x.strip('/'))
+                  route = '/' + route
+                  key = (method, route.lower())
+                  route_records.append((method, route, item['name'], action))
+                  route_duplicates[key].append((item['name'], action))
+          duplicate_routes = {
+              key: values for key, values in route_duplicates.items() if len(values) > 1
+          }
+
+          # Approximate constructor dependency graph and circular dependency detection.
+          interface_impl: dict[str, str] = {}
+          for match in re.finditer(
+              r'Add(?:Scoped|Singleton|Transient)\s*<\s*(I\w+)\s*,\s*(\w+)\s*>',
+              registration_text,
+          ):
+              interface_impl[match.group(1)] = match.group(2)
+          for match in re.finditer(
+              r'Add(?:Scoped|Singleton|Transient)\s*<\s*(I\w+)\s*>\s*\([\s\S]{0,300}?new\s+(\w+)\s*\(',
+              registration_text,
+          ):
+              interface_impl[match.group(1)] = match.group(2)
+
+          known_names = {item['name'] for item in classes}
+          graph: dict[str, set[str]] = collections.defaultdict(set)
+          for item in classes:
+              name = item['name']
+              ctor_matches = list(re.finditer(rf'public\s+{re.escape(name)}\s*\((.*?)\)', item['text'], re.DOTALL))
+              if not ctor_matches:
+                  continue
+              selected = max(ctor_matches, key=lambda m: m.group(1).count(','))
+              raw_params = selected.group(1)
+              for raw in raw_params.split(','):
+                  cleaned = re.sub(r'\[[^\]]+\]', '', raw).strip()
+                  cleaned = cleaned.split('=')[0].strip()
+                  if not cleaned or ' ' not in cleaned:
+                      continue
+                  type_part = cleaned.rsplit(' ', 1)[0].replace('params ', '').strip()
+                  base_type_match = re.match(r'([A-Za-z_]\w*)', type_part)
+                  if not base_type_match:
+                      continue
+                  dependency = base_type_match.group(1)
+                  target = interface_impl.get(dependency, dependency)
+                  if target in known_names and target != name:
+                      graph[name].add(target)
+
+          cycles: set[tuple[str, ...]] = set()
+          visiting: list[str] = []
+          visited: set[str] = set()
+
+          def canonical_cycle(nodes: list[str]) -> tuple[str, ...]:
+              core = nodes[:-1]
+              rotations = [tuple(core[i:] + core[:i]) for i in range(len(core))]
+              return min(rotations)
+
+          def dfs(node: str) -> None:
+              if node in visiting:
+                  idx = visiting.index(node)
+                  cycle_nodes = visiting[idx:] + [node]
+                  cycles.add(canonical_cycle(cycle_nodes))
+                  return
+              if node in visited:
+                  return
+              visiting.append(node)
+              for nxt in sorted(graph.get(node, ())):
+                  dfs(nxt)
+              visiting.pop()
+              visited.add(node)
+
+          for node in sorted(graph):
+              dfs(node)
+
+          important_categories = {'Controller', 'Service', 'Middleware', 'Validator', 'Mapper', 'Seeder', 'Data', 'Configuration'}
+          important = [item for item in classes if item['category'] in important_categories]
+          no_direct_tests = sorted(
+              [item for item in important if not item['direct_test']],
+              key=lambda x: (x['category'], x['name']),
+          )
+          zero_coverage = sorted(
+              [item for item in important if item['coverage'] is None or item['coverage'] <= 0.000001],
+              key=lambda x: (x['category'], x['name']),
+          )
+          indirect_only = sorted(
+              [item for item in important if not item['direct_test'] and (item['coverage'] or 0) > 0],
+              key=lambda x: (x['category'], x['name']),
+          )
+          direct_but_zero = sorted(
+              [item for item in important if item['direct_test'] and (item['coverage'] is None or item['coverage'] <= 0.000001)],
+              key=lambda x: (x['category'], x['name']),
+          )
+
+          build_exit = (audit_dir / 'build.exit').read_text().strip() if (audit_dir / 'build.exit').exists() else 'missing'
+          tests_exit = (audit_dir / 'tests.exit').read_text().strip() if (audit_dir / 'tests.exit').exists() else 'missing'
+          build_log = (audit_dir / 'build.log').read_text(errors='replace') if (audit_dir / 'build.log').exists() else ''
+          warning_lines = sorted(set(
+              line.strip() for line in build_log.splitlines()
+              if re.search(r'\bwarning\s+[A-Z]{1,5}\d+\b', line, re.IGNORECASE)
+          ))
+
+          report: list[str] = []
+          report.append('# Full backend conflict and unit-test audit')
+          report.append('')
+          report.append(f'- Production commit audited: `{__import__("os").environ.get("GITHUB_BASE_REF") or "main"}`')
+          report.append(f'- Source classes scanned: **{len(classes)}**')
+          report.append(f'- Test source files scanned: **{len(test_files)}**')
+          report.append(f'- Coverage files found: **{len(coverage_files)}**')
+          report.append(f'- Build exit code: **{build_exit}**')
+          report.append(f'- Test exit code: **{tests_exit}**')
+          report.append('')
+
+          report.append('## Conflict summary')
+          report.append('')
+          risky = [item for item in multi_ctor if item['risk']]
+          report.append(f'- Ambiguous-constructor DI risks: **{len(risky)}**')
+          report.append(f'- Constructor cycles detected by static graph: **{len(cycles)}**')
+          report.append(f'- Duplicate HTTP method + route pairs: **{len(duplicate_routes)}**')
+          report.append(f'- Duplicate fully-qualified class declarations: **{len(duplicate_types)}**')
+          report.append(f'- Case-insensitive path collisions: **{len(case_collisions)}**')
+          report.append(f'- Compiler warning lines: **{len(warning_lines)}**')
+          report.append('')
+
+          report.append('### Multiple-public-constructor classes')
+          report.append('')
+          report.append('| Class | Constructors | Registration | Factory | Risk | File |')
+          report.append('|---|---:|---|---|---|---|')
+          for item in sorted(multi_ctor, key=lambda x: (not x['risk'], x['name'])):
+              registration = 'automatic' if item['automatic_registration'] else ('MVC' if item['mvc_controller'] else 'not detected')
+              report.append(
+                  f'| `{item["name"]}` | {item["constructors"]} | {registration} | '
+                  f'{"yes" if item["factory"] else "no"} | {"**HIGH**" if item["risk"] else "resolved/low"} | `{item["path"]}` |'
+              )
+          if not multi_ctor:
+              report.append('| — | — | — | — | — | — |')
+          report.append('')
+
+          report.append('### Circular constructor dependencies')
+          report.append('')
+          if cycles:
+              for cycle in sorted(cycles):
+                  report.append('- `' + ' -> '.join(cycle + (cycle[0],)) + '`')
+          else:
+              report.append('- None detected by the static constructor graph.')
+          report.append('')
+
+          report.append('### Duplicate routes')
+          report.append('')
+          if duplicate_routes:
+              for (method, route), values in sorted(duplicate_routes.items()):
+                  endpoints = ', '.join(f'{controller}.{action}' for controller, action in values)
+                  report.append(f'- `{method} {route}`: {endpoints}')
+          else:
+              report.append('- None detected.')
+          report.append('')
+
+          report.append('### Duplicate types and path collisions')
+          report.append('')
+          if duplicate_types:
+              for name, paths in sorted(duplicate_types.items()):
+                  report.append(f'- Duplicate type `{name}`: ' + ', '.join(f'`{p}`' for p in paths))
+          else:
+              report.append('- No duplicate fully-qualified class declarations detected.')
+          if case_collisions:
+              for _, paths in sorted(case_collisions.items()):
+                  report.append('- Case collision: ' + ', '.join(f'`{p}`' for p in paths))
+          else:
+              report.append('- No case-insensitive path collisions detected.')
+          report.append('')
+
+          report.append('### Compiler warnings')
+          report.append('')
+          if warning_lines:
+              report.extend(f'- `{line}`' for line in warning_lines)
+          else:
+              report.append('- None.')
+          report.append('')
+
+          report.append('## Unit-test gaps')
+          report.append('')
+          report.append(f'- Important classes with **no direct test reference**: **{len(no_direct_tests)}**')
+          report.append(f'- Important classes with **zero or absent measured line coverage**: **{len(zero_coverage)}**')
+          report.append(f'- Classes covered only indirectly, without a direct unit test: **{len(indirect_only)}**')
+          report.append(f'- Classes referenced by tests but still at zero/absent coverage: **{len(direct_but_zero)}**')
+          report.append('')
+
+          def add_class_table(title: str, items: list[dict]) -> None:
+              report.append(f'### {title}')
+              report.append('')
+              report.append('| Category | Class | Coverage | Test files referencing class | Source |')
+              report.append('|---|---|---:|---:|---|')
+              for item in items:
+                  coverage = 'absent' if item['coverage'] is None else f'{item["coverage"] * 100:.1f}%'
+                  report.append(
+                      f'| {item["category"]} | `{item["name"]}` | {coverage} | '
+                      f'{len(item["test_refs"])} | `{item["path"]}` |'
+                  )
+              if not items:
+                  report.append('| — | — | — | — | — |')
+              report.append('')
+
+          add_class_table('No direct unit-test reference', no_direct_tests)
+          add_class_table('Zero or absent coverage', zero_coverage)
+          add_class_table('Indirect coverage only', indirect_only)
+          add_class_table('Test reference exists but coverage is zero/absent', direct_but_zero)
+
+          report.append('## All important classes')
+          report.append('')
+          report.append('| Category | Class | Direct test reference | Coverage | Source |')
+          report.append('|---|---|---|---:|---|')
+          for item in sorted(important, key=lambda x: (x['category'], x['name'])):
+              coverage = 'absent' if item['coverage'] is None else f'{item["coverage"] * 100:.1f}%'
+              report.append(
+                  f'| {item["category"]} | `{item["name"]}` | '
+                  f'{"yes" if item["direct_test"] else "no"} | {coverage} | `{item["path"]}` |'
+              )
+          report.append('')
+
+          (audit_dir / 'full-audit-report.md').write_text('\n'.join(report), encoding='utf-8')
+
+          # Machine-readable short lists.
+          (audit_dir / 'no-direct-unit-tests.txt').write_text(
+              '\n'.join(f'{item["category"]}\t{item["name"]}\t{item["path"]}' for item in no_direct_tests),
+              encoding='utf-8',
+          )
+          (audit_dir / 'zero-coverage.txt').write_text(
+              '\n'.join(f'{item["category"]}\t{item["name"]}\t{item["path"]}' for item in zero_coverage),
+              encoding='utf-8',
+          )
+
+          print('\n'.join(report[:120]))
+          PY
+
+      - name: Upload full audit artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-backend-audit
+          path: |
+            audit/
+            TestResults/
+          if-no-files-found: error
+
+      - name: Enforce build and tests
+        if: always()
+        shell: bash
+        run: |
+          build_exit="$(cat audit/build.exit 2>/dev/null || echo 1)"
+          tests_exit="$(cat audit/tests.exit 2>/dev/null || echo 1)"
+          if [ "$build_exit" != "0" ] || [ "$tests_exit" != "0" ]; then
+            echo "Build exit: $build_exit; test exit: $tests_exit"
+            exit 1
+          fi
