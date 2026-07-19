@@ -19,7 +19,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<HomeSlideshowSettingsService>();
         services.AddScoped<HomeSlideshowVideoService>();
         services.AddScoped<HomeSlideshowImageService>();
-        services.AddScoped<IHomeSlideshowService, HomeSlideshowService>();
+        services.AddScoped<IHomeSlideshowService>(serviceProvider =>
+            new HomeSlideshowService(
+                serviceProvider.GetRequiredService<HomeSlideshowImageService>(),
+                serviceProvider.GetRequiredService<HomeSlideshowSettingsService>(),
+                serviceProvider.GetRequiredService<HomeSlideshowVideoService>()));
 
         services.AddScoped<IPrivacyService, PrivacyService>();
 
