@@ -1,6 +1,10 @@
-﻿using DGVisionStudio.Domain.Entities;
+using DGVisionStudio.Api.Extensions;
+using DGVisionStudio.Api.Services;
+using DGVisionStudio.Api.Services.Interfaces;
+using DGVisionStudio.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DGVisionStudio.Infrastructure.Controllers;
 
@@ -8,38 +12,20 @@ namespace DGVisionStudio.Infrastructure.Controllers;
 [Route("api/debug/users")]
 public class DebugUsersController : ControllerBase
 {
-	private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IDebugUserService _service;
 
-	public DebugUsersController(UserManager<ApplicationUser> userManager)
-	{
-		_userManager = userManager;
-	}
+    [ActivatorUtilitiesConstructor]
+    public DebugUsersController(IDebugUserService service)
+    {
+        _service = service;
+    }
 
-	[HttpGet]
-	public async Task<IActionResult> GetUsers()
-	{
-		var users = _userManager.Users.ToList();
+    public DebugUsersController(UserManager<ApplicationUser> userManager)
+        : this(new DebugUserService(userManager))
+    {
+    }
 
-		var result = new List<object>();
-
-		foreach (var user in users)
-		{
-			var roles = await _userManager.GetRolesAsync(user);
-
-			result.Add(new
-			{
-				user.Id,
-				user.Email,
-
-				// Confirm email логиката е временно спряна,
-				// но полето още го пазим за debug/съвместимост.
-				user.EmailConfirmed,
-
-				user.IsBlocked,
-				Roles = roles
-			});
-		}
-
-		return Ok(result);
-	}
+    [HttpGet]
+    public async Task<IActionResult> GetUsers() =>
+        this.ToActionResult(await _service.GetUsersAsync());
 }
