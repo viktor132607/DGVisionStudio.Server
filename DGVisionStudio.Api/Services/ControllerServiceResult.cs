@@ -48,3 +48,14 @@ public sealed record FileDownloadResult(
     Stream Stream,
     string ContentType,
     string FileName);
+
+public sealed record PhysicalFileDownloadResult(
+    string Path,
+    string ContentType,
+    string FileName,
+    Func<Task> CleanupAsync);
+
+public sealed record StreamingFileDownloadResult(
+    string ContentType,
+    string FileName,
+    Func<Stream, CancellationToken, Task> WriteAsync);
