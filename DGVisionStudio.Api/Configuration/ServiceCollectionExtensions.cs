@@ -77,7 +77,12 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<IClientGalleryService, ClientGalleryService>();
         services.AddScoped<IClientGalleryAdminService, ClientGalleryAdminService>();
+
+        services.AddScoped<ClientGalleryUserQueryService>();
+        services.AddScoped<ClientGalleryUserCreationService>();
+        services.AddScoped<ClientGalleryUserLifecycleService>();
         services.AddScoped<IClientGalleryUserService, ClientGalleryUserService>();
+
         services.AddScoped<IClientGalleryAccessService, ClientGalleryAccessService>();
 
         services.AddScoped<ClientGalleryPhotoDownloadService>();
