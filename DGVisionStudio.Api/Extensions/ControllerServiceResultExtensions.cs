@@ -9,7 +9,9 @@ public static class ControllerServiceResultExtensions
     public static IActionResult ToActionResult(this ControllerBase controller, ControllerServiceResult result) =>
         result.StatusCode switch
         {
-            StatusCodes.Status200OK => controller.Ok(result.Value),
+            StatusCodes.Status200OK => result.Value is null
+                ? controller.Ok()
+                : controller.Ok(result.Value),
             StatusCodes.Status204NoContent => controller.NoContent(),
             StatusCodes.Status400BadRequest => controller.BadRequest(result.Value),
             StatusCodes.Status401Unauthorized => controller.Unauthorized(result.Value),
