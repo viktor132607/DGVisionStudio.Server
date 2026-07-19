@@ -1,41 +1,43 @@
+using DGVisionStudio.Api.Extensions;
 using DGVisionStudio.Api.Models;
 using DGVisionStudio.Api.Services;
+using DGVisionStudio.Api.Services.Interfaces;
 using DGVisionStudio.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DGVisionStudio.Api.Controllers;
 
 [Authorize]
 [ApiController]
 [Route("api/me/privacy")]
-public sealed class PrivacyController(
-    UserManager<ApplicationUser> userManager,
-    IPrivacyService privacyService) : ControllerBase
+public sealed class PrivacyController : ControllerBase
 {
-    [HttpGet("export")]
-    public async Task<IActionResult> Export()
-    {
-        var user = await userManager.GetUserAsync(User);
-        if (user is null)
-            return ApiError.Unauthorized(traceId: HttpContext.TraceIdentifier);
+    private readonly IPrivacyEndpointService _service;
 
-        var export = await privacyService.ExportUserDataAsync(user.Id);
-        return export is null ? ApiError.NotFound(traceId: HttpContext.TraceIdentifier) : Ok(export);
+    [ActivatorUtilitiesConstructor]
+    public PrivacyController(IPrivacyEndpointService service)
+    {
+        _service = service;
     }
+
+    public PrivacyController(
+        UserManager<ApplicationUser> userManager,
+        IPrivacyService privacyService)
+        : this(new PrivacyEndpointService(userManager, privacyService))
+    {
+    }
+
+    [HttpGet("export")]
+    public async Task<IActionResult> Export() =>
+        this.ToActionResult(await _service.ExportAsync(User, HttpContext.TraceIdentifier));
 
     [HttpDelete("account")]
-    public async Task<IActionResult> DeleteAccount([FromBody] DeleteAccountRequest request)
-    {
-        if (!request.Confirm)
-            return ApiError.Validation("Account deletion must be explicitly confirmed.", HttpContext.TraceIdentifier);
-
-        var user = await userManager.GetUserAsync(User);
-        if (user is null)
-            return ApiError.Unauthorized(traceId: HttpContext.TraceIdentifier);
-
-        var anonymized = await privacyService.AnonymizeUserDataAsync(user.Id);
-        return anonymized ? NoContent() : ApiError.NotFound(traceId: HttpContext.TraceIdentifier);
-    }
+    public async Task<IActionResult> DeleteAccount([FromBody] DeleteAccountRequest request) =>
+        this.ToActionResult(await _service.DeleteAccountAsync(
+            User,
+            request.Confirm,
+            HttpContext.TraceIdentifier));
 }
