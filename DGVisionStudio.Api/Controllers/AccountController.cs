@@ -1,8 +1,11 @@
-﻿using DGVisionStudio.Application.DTOs.Account;
+using DGVisionStudio.Api.Extensions;
+using DGVisionStudio.Api.Services;
+using DGVisionStudio.Api.Services.Interfaces;
 using DGVisionStudio.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DGVisionStudio.Infrastructure.Controllers;
 
@@ -11,43 +14,23 @@ namespace DGVisionStudio.Infrastructure.Controllers;
 [Authorize]
 public class AccountController : ControllerBase
 {
-	private readonly UserManager<ApplicationUser> _userManager;
-	private readonly SignInManager<ApplicationUser> _signInManager;
+    private readonly IAccountEndpointService _service;
 
-	public AccountController(
-		UserManager<ApplicationUser> userManager,
-		SignInManager<ApplicationUser> signInManager)
-	{
-		_userManager = userManager;
-		_signInManager = signInManager;
-	}
+    [ActivatorUtilitiesConstructor]
+    public AccountController(IAccountEndpointService service)
+    {
+        _service = service;
+    }
 
-	[HttpDelete("delete")]
-	public async Task<IActionResult> DeleteAccount([FromBody] DeleteAccountRequest request)
-	{
-		if (string.IsNullOrWhiteSpace(request.Password))
-			return BadRequest(new { message = "Password is required." });
+    public AccountController(
+        UserManager<ApplicationUser> userManager,
+        SignInManager<ApplicationUser> signInManager)
+        : this(new AccountEndpointService(userManager, signInManager))
+    {
+    }
 
-		var user = await _userManager.GetUserAsync(User);
-		if (user == null)
-			return Unauthorized(new { message = "User not authenticated." });
-
-		var passwordValid = await _userManager.CheckPasswordAsync(user, request.Password);
-		if (!passwordValid)
-			return BadRequest(new { message = "Invalid password." });
-
-		await _signInManager.SignOutAsync();
-
-		var result = await _userManager.DeleteAsync(user);
-		if (!result.Succeeded)
-		{
-			return BadRequest(new
-			{
-				message = "Account deletion failed.",
-				errors = result.Errors.Select(x => x.Description)
-			});
-		}
-
-		return Ok(new { message = "Account deleted successfully." });
-	}
+    [HttpDelete("delete")]
+    public async Task<IActionResult> DeleteAccount(
+        [FromBody] DGVisionStudio.Application.DTOs.Account.DeleteAccountRequest request) =>
+        this.ToActionResult(await _service.DeleteAccountAsync(User, request.Password));
 }

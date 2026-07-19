@@ -19,6 +19,9 @@ public sealed record ControllerServiceResult(int StatusCode, object? Value = nul
     public static ControllerServiceResult Unauthorized(object? value) =>
         new(StatusCodes.Status401Unauthorized, value);
 
+    public static ControllerServiceResult Forbidden() =>
+        new(StatusCodes.Status403Forbidden);
+
     public static ControllerServiceResult NotFound(object? value = null) =>
         new(StatusCodes.Status404NotFound, value);
 
@@ -45,3 +48,14 @@ public sealed record FileDownloadResult(
     Stream Stream,
     string ContentType,
     string FileName);
+
+public sealed record PhysicalFileDownloadResult(
+    string Path,
+    string ContentType,
+    string FileName,
+    Func<Task> CleanupAsync);
+
+public sealed record StreamingFileDownloadResult(
+    string ContentType,
+    string FileName,
+    Func<Stream, CancellationToken, Task> WriteAsync);

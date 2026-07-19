@@ -22,6 +22,26 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAdminPortfolioService, AdminPortfolioService>();
         services.AddScoped<IAdminClientGalleryManagementService, AdminClientGalleryManagementService>();
         services.AddScoped<IAdminPrintRequestService, AdminPrintRequestService>();
+        services.AddScoped<IAdminUserService, AdminUserService>();
+        services.AddScoped<IClientGalleryEndpointService, ClientGalleryEndpointService>();
+        services.AddScoped<IAdminCalendarService, AdminCalendarService>();
+        services.AddScoped<IContactRequestService, ContactRequestService>();
+        services.AddScoped<IServiceCatalogService, ServiceCatalogService>();
+        services.AddScoped<IPortfolioQueryService, PortfolioQueryService>();
+        services.AddScoped<IAdminStatisticsService, AdminStatisticsService>();
+        services.AddScoped<ITestimonialService, TestimonialService>();
+        services.AddScoped<IHealthService, HealthService>();
+        services.AddScoped<IPrivacyEndpointService, PrivacyEndpointService>();
+        services.AddScoped<IAccountEndpointService, AccountEndpointService>();
+        services.AddScoped<IAdminAuditLogQueryService, AdminAuditLogQueryService>();
+        services.AddScoped<IAdminGalleryArchiveService, AdminGalleryArchiveService>();
+        services.AddScoped<IAdminGalleryAccessEndpointService, AdminGalleryAccessEndpointService>();
+        services.AddScoped<IAdminGalleryMediaManagementService, AdminGalleryMediaManagementService>();
+        services.AddScoped<IClientPrintRequestEndpointService, ClientPrintRequestEndpointService>();
+        services.AddScoped<ICsrfTokenService, CsrfTokenService>();
+        services.AddScoped<IDebugUserService, DebugUserService>();
+        services.AddScoped<ISiteSettingsService, SiteSettingsService>();
+        services.AddScoped<IHomeStatusService, HomeStatusService>();
 
         if (storageOptions.UseCloudinary)
         {

@@ -1,7 +1,10 @@
+using DGVisionStudio.Api.Extensions;
+using DGVisionStudio.Api.Services;
+using DGVisionStudio.Api.Services.Interfaces;
 using DGVisionStudio.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DGVisionStudio.Infrastructure.Controllers;
 
@@ -10,57 +13,29 @@ namespace DGVisionStudio.Infrastructure.Controllers;
 [Route("api/admin/client-galleries/{galleryId:int}/media")]
 public class AdminClientGalleryMediaController : ControllerBase
 {
-	private readonly AppDbContext _context;
+    private readonly IAdminGalleryMediaManagementService _service;
 
-	public AdminClientGalleryMediaController(AppDbContext context)
-	{
-		_context = context;
-	}
+    [ActivatorUtilitiesConstructor]
+    public AdminClientGalleryMediaController(IAdminGalleryMediaManagementService service)
+    {
+        _service = service;
+    }
 
-	[HttpPut("{mediaId:int}/metadata")]
-	public async Task<IActionResult> UpdateMetadata(
-		[FromRoute] int galleryId,
-		[FromRoute] int mediaId,
-		[FromBody] UpdateGalleryMediaMetadataRequest request)
-	{
-		if (galleryId <= 0 || mediaId <= 0)
-			return BadRequest(new { message = "Invalid gallery or media id." });
+    public AdminClientGalleryMediaController(AppDbContext context)
+        : this(new AdminGalleryMediaMetadataService(context))
+    {
+    }
 
-		var media = await _context.PortfolioImages
-			.FirstOrDefaultAsync(x => x.Id == mediaId && x.PortfolioAlbumId == galleryId && !x.IsDeleted);
-
-		if (media == null)
-			return NotFound(new { message = "Media not found." });
-
-		media.Name = Normalize(request.Name, 250);
-
-		if (request.ClearAltAndCaption)
-		{
-			media.AltText = null;
-			media.Caption = null;
-		}
-
-		await _context.SaveChangesAsync();
-
-		return Ok(new
-		{
-			media.Id,
-			media.Name,
-			media.AltText,
-			media.Caption
-		});
-	}
-
-	private static string? Normalize(string? value, int maxLength)
-	{
-		var trimmed = value?.Trim();
-		if (string.IsNullOrWhiteSpace(trimmed)) return null;
-		return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
-	}
+    [HttpPut("{mediaId:int}/metadata")]
+    public async Task<IActionResult> UpdateMetadata(
+        [FromRoute] int galleryId,
+        [FromRoute] int mediaId,
+        [FromBody] UpdateGalleryMediaMetadataRequest request) =>
+        this.ToActionResult(await _service.UpdateMetadataAsync(galleryId, mediaId, request));
 }
 
 public class UpdateGalleryMediaMetadataRequest
 {
-	public string? Name { get; set; }
-	public bool ClearAltAndCaption { get; set; }
+    public string? Name { get; set; }
+    public bool ClearAltAndCaption { get; set; }
 }

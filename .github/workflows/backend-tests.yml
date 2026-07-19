@@ -25,10 +25,14 @@ jobs:
         run: dotnet restore DGVisionStudio.Server.slnx
 
       - name: Build
-        run: dotnet build DGVisionStudio.Server.slnx --configuration Release --no-restore
+        shell: bash
+        run: |
+          mkdir -p TestResults
+          set -o pipefail
+          dotnet build DGVisionStudio.Server.slnx --configuration Release --no-restore 2>&1 | tee TestResults/build.log
 
       - name: Test
-        run: dotnet test DGVisionStudio.Server.slnx --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory TestResults
+        run: dotnet test DGVisionStudio.Server.slnx --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=backend-tests.trx" --collect:"XPlat Code Coverage" --results-directory TestResults
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4

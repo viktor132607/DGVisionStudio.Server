@@ -1,4 +1,8 @@
+using DGVisionStudio.Api.Extensions;
+using DGVisionStudio.Api.Services;
+using DGVisionStudio.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DGVisionStudio.Infrastructure.Controllers;
 
@@ -6,9 +10,20 @@ namespace DGVisionStudio.Infrastructure.Controllers;
 [Route("api/home")]
 public class HomeController : ControllerBase
 {
-    [HttpGet]
-    public IActionResult Get()
+    private readonly IHomeStatusService _service;
+
+    [ActivatorUtilitiesConstructor]
+    public HomeController(IHomeStatusService service)
     {
-        return Ok(new { message = "DG Vision Studio API running" });
+        _service = service;
     }
+
+    public HomeController()
+        : this(new HomeStatusService())
+    {
+    }
+
+    [HttpGet]
+    public IActionResult Get() =>
+        this.ToActionResult(_service.GetStatus());
 }

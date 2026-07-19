@@ -1,6 +1,9 @@
+using DGVisionStudio.Api.Extensions;
+using DGVisionStudio.Api.Services;
+using DGVisionStudio.Api.Services.Interfaces;
 using DGVisionStudio.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DGVisionStudio.Infrastructure.Controllers;
 
@@ -8,22 +11,20 @@ namespace DGVisionStudio.Infrastructure.Controllers;
 [Route("api/testimonials")]
 public class TestimonialsController : ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly ITestimonialService _service;
+
+    [ActivatorUtilitiesConstructor]
+    public TestimonialsController(ITestimonialService service)
+    {
+        _service = service;
+    }
 
     public TestimonialsController(AppDbContext context)
+        : this(new TestimonialService(context))
     {
-        _context = context;
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
-    {
-        var items = await _context.Testimonials
-            .Where(x => x.IsPublished)
-            .OrderBy(x => x.DisplayOrder)
-            .ThenByDescending(x => x.CreatedAtUtc)
-            .ToListAsync();
-
-        return Ok(items);
-    }
+    public async Task<IActionResult> GetAll() =>
+        this.ToActionResult(await _service.GetPublishedAsync());
 }

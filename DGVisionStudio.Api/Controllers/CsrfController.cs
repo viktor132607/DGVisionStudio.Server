@@ -1,5 +1,7 @@
-﻿using DGVisionStudio.Api.Middleware;
+using DGVisionStudio.Api.Services;
+using DGVisionStudio.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DGVisionStudio.Api.Controllers;
 
@@ -7,25 +9,33 @@ namespace DGVisionStudio.Api.Controllers;
 [Route("api/csrf")]
 public class CsrfController : ControllerBase
 {
-	private const string CsrfCookieName = "DGVisionStudio.Csrf";
+    private const string CsrfCookieName = "DGVisionStudio.Csrf";
+    private readonly ICsrfTokenService _service;
 
-	[HttpGet]
-	public IActionResult GetToken()
-	{
-		var token = CsrfProtectionMiddleware.GenerateToken();
+    [ActivatorUtilitiesConstructor]
+    public CsrfController(ICsrfTokenService service)
+    {
+        _service = service;
+    }
 
-		Response.Cookies.Append(CsrfCookieName, token, new CookieOptions
-		{
-			HttpOnly = false,
-			Secure = true,
-			SameSite = SameSiteMode.None,
-			IsEssential = true,
-			Path = "/"
-		});
+    public CsrfController()
+        : this(new CsrfTokenService())
+    {
+    }
 
-		return Ok(new
-		{
-			csrfToken = token
-		});
-	}
+    [HttpGet]
+    public IActionResult GetToken()
+    {
+        var token = _service.GenerateToken();
+        Response.Cookies.Append(CsrfCookieName, token, new CookieOptions
+        {
+            HttpOnly = false,
+            Secure = true,
+            SameSite = SameSiteMode.None,
+            IsEssential = true,
+            Path = "/"
+        });
+
+        return Ok(new { csrfToken = token });
+    }
 }

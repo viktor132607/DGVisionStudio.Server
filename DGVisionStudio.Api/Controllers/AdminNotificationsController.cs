@@ -1,11 +1,12 @@
-﻿using DGVisionStudio.Application.DTOs.Admin;
+using DGVisionStudio.Api.Extensions;
+using DGVisionStudio.Api.Services;
+using DGVisionStudio.Api.Services.Interfaces;
 using DGVisionStudio.Domain.Entities;
-using DGVisionStudio.Domain.Enums;
 using DGVisionStudio.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DGVisionStudio.Api.Controllers;
 
@@ -14,39 +15,22 @@ namespace DGVisionStudio.Api.Controllers;
 [Route("api/admin/notifications")]
 public class AdminNotificationsController : ControllerBase
 {
-	private readonly AppDbContext _context;
-	private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IAdminStatisticsService _service;
 
-	public AdminNotificationsController(AppDbContext context, UserManager<ApplicationUser> userManager)
-	{
-		_context = context;
-		_userManager = userManager;
-	}
+    [ActivatorUtilitiesConstructor]
+    public AdminNotificationsController(IAdminStatisticsService service)
+    {
+        _service = service;
+    }
 
-	[HttpGet]
-	public async Task<ActionResult<AdminNotificationCountsDto>> GetCounts()
-	{
-		var newUsers = await _userManager.Users
-			.CountAsync(x => !x.IsBlocked && !x.IsSeenByAdmin);
+    public AdminNotificationsController(
+        AppDbContext context,
+        UserManager<ApplicationUser> userManager)
+        : this(new AdminStatisticsService(context, userManager))
+    {
+    }
 
-		var newContactRequests = await _context.ContactRequests
-			.CountAsync(x => !x.IsArchived && !x.IsSeenByAdmin);
-
-		var newDirectPrintRequests = await _context.PrintRequests
-			.CountAsync(x => !x.IsSeenByAdmin);
-
-		var newUserUploadedAlbums = await _context.PortfolioAlbums
-			.CountAsync(x =>
-				x.GalleryType == GalleryType.ClientPrintUpload &&
-				x.IsUserUploaded &&
-				!x.IsSeenByAdmin &&
-				!x.IsDeleted);
-
-		return Ok(new AdminNotificationCountsDto
-		{
-			NewUsers = newUsers,
-			NewContactRequests = newContactRequests,
-			NewPrintRequests = newDirectPrintRequests + newUserUploadedAlbums
-		});
-	}
+    [HttpGet]
+    public async Task<IActionResult> GetCounts() =>
+        this.ToActionResult(await _service.GetNotificationCountsAsync());
 }
