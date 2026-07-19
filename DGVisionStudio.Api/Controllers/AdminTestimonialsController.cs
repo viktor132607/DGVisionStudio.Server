@@ -1,8 +1,11 @@
+using DGVisionStudio.Api.Extensions;
+using DGVisionStudio.Api.Services;
+using DGVisionStudio.Api.Services.Interfaces;
 using DGVisionStudio.Domain.Entities;
 using DGVisionStudio.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DGVisionStudio.Infrastructure.Controllers;
 
@@ -11,48 +14,32 @@ namespace DGVisionStudio.Infrastructure.Controllers;
 [Route("api/admin/testimonials")]
 public class AdminTestimonialsController : ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly ITestimonialService _service;
+
+    [ActivatorUtilitiesConstructor]
+    public AdminTestimonialsController(ITestimonialService service)
+    {
+        _service = service;
+    }
 
     public AdminTestimonialsController(AppDbContext context)
+        : this(new TestimonialService(context))
     {
-        _context = context;
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll() => Ok(await _context.Testimonials.OrderBy(x => x.DisplayOrder).ToListAsync());
+    public async Task<IActionResult> GetAll() =>
+        this.ToActionResult(await _service.GetAllAsync());
 
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] Testimonial entity)
-    {
-        entity.CreatedAtUtc = DateTime.UtcNow;
-        _context.Testimonials.Add(entity);
-        await _context.SaveChangesAsync();
-        return Ok(entity);
-    }
+    public async Task<IActionResult> Create([FromBody] Testimonial entity) =>
+        this.ToActionResult(await _service.CreateAsync(entity));
 
     [HttpPut("{id:int}")]
-    public async Task<IActionResult> Update(int id, [FromBody] Testimonial model)
-    {
-        var entity = await _context.Testimonials.FindAsync(id);
-        if (entity == null) return NotFound();
-        entity.ClientName = model.ClientName;
-        entity.ClientCompany = model.ClientCompany;
-        entity.ClientRole = model.ClientRole;
-        entity.Content = model.Content;
-        entity.Rating = model.Rating;
-        entity.IsPublished = model.IsPublished;
-        entity.DisplayOrder = model.DisplayOrder;
-        await _context.SaveChangesAsync();
-        return Ok(entity);
-    }
+    public async Task<IActionResult> Update(int id, [FromBody] Testimonial model) =>
+        this.ToActionResult(await _service.UpdateAsync(id, model));
 
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Delete(int id)
-    {
-        var entity = await _context.Testimonials.FindAsync(id);
-        if (entity == null) return NotFound();
-        _context.Testimonials.Remove(entity);
-        await _context.SaveChangesAsync();
-        return NoContent();
-    }
+    public async Task<IActionResult> Delete(int id) =>
+        this.ToActionResult(await _service.DeleteAsync(id));
 }
