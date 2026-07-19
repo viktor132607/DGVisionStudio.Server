@@ -26,5 +26,37 @@ jobs:
       - name: Build
         run: dotnet build --no-restore --configuration Release
 
+      - name: Wait for production deployment
+        run: sleep 120
+
+      - name: Diagnose production auth endpoint
+        shell: bash
+        run: |
+          set +e
+          curl --silent --show-error --location \
+            --connect-timeout 10 \
+            --max-time 30 \
+            --dump-header auth-headers.txt \
+            --output auth-body.txt \
+            --write-out "curl_exit=%{exitcode} http=%{http_code} connect=%{time_connect}s starttransfer=%{time_starttransfer}s total=%{time_total}s size=%{size_download}\n" \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --data '{"email":"auth-probe-does-not-exist@example.invalid","password":"WrongPassword123!"}' \
+            "https://api.dgvisionstudio.com/api/auth/login" | tee auth-summary.txt
+          echo "--- headers ---" | tee -a auth-summary.txt
+          cat auth-headers.txt | tee -a auth-summary.txt
+          echo "--- body ---" | tee -a auth-summary.txt
+          cat auth-body.txt | tee -a auth-summary.txt
+
+      - name: Upload production auth diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-auth-diagnostics
+          path: |
+            auth-summary.txt
+            auth-headers.txt
+            auth-body.txt
+          if-no-files-found: error
+
       - name: Test
         run: dotnet test --no-build --configuration Release --verbosity normal
