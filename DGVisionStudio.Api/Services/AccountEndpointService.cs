@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using DGVisionStudio.Api.Services.Interfaces;
-using DGVisionStudio.Application.DTOs.Account;
 using DGVisionStudio.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 
@@ -21,16 +20,16 @@ public sealed class AccountEndpointService : IAccountEndpointService
 
     public async Task<ControllerServiceResult> DeleteAccountAsync(
         ClaimsPrincipal principal,
-        DeleteAccountRequest request)
+        string password)
     {
-        if (string.IsNullOrWhiteSpace(request.Password))
+        if (string.IsNullOrWhiteSpace(password))
             return ControllerServiceResult.BadRequest(new { message = "Password is required." });
 
         var user = await _userManager.GetUserAsync(principal);
         if (user is null)
             return ControllerServiceResult.Unauthorized(new { message = "User not authenticated." });
 
-        if (!await _userManager.CheckPasswordAsync(user, request.Password))
+        if (!await _userManager.CheckPasswordAsync(user, password))
             return ControllerServiceResult.BadRequest(new { message = "Invalid password." });
 
         await _signInManager.SignOutAsync();
