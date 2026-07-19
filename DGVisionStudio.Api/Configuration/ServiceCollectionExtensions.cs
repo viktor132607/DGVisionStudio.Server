@@ -19,7 +19,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPrivacyService, PrivacyService>();
 
         services.AddScoped<IAuthService, AuthService>();
+
+        services.AddScoped<PortfolioCategoryAdminService>();
+        services.AddScoped<PortfolioAlbumAdminService>();
+        services.AddScoped<PortfolioImageAdminService>();
         services.AddScoped<IAdminPortfolioService, AdminPortfolioService>();
+
         services.AddScoped<IAdminClientGalleryManagementService, AdminClientGalleryManagementService>();
         services.AddScoped<IAdminPrintRequestService, AdminPrintRequestService>();
         services.AddScoped<IAdminUserService, AdminUserService>();
