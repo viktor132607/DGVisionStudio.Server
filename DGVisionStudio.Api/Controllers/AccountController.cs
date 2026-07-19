@@ -32,5 +32,5 @@ public class AccountController : ControllerBase
     [HttpDelete("delete")]
     public async Task<IActionResult> DeleteAccount(
         [FromBody] DGVisionStudio.Application.DTOs.Account.DeleteAccountRequest request) =>
-        this.ToActionResult(await _service.DeleteAccountAsync(User, request));
+        this.ToActionResult(await _service.DeleteAccountAsync(User, request.Password));
 }
