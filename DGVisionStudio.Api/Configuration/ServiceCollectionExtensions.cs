@@ -22,6 +22,15 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAdminPortfolioService, AdminPortfolioService>();
         services.AddScoped<IAdminClientGalleryManagementService, AdminClientGalleryManagementService>();
         services.AddScoped<IAdminPrintRequestService, AdminPrintRequestService>();
+        services.AddScoped<IAdminUserService, AdminUserService>();
+        services.AddScoped<IClientGalleryEndpointService, ClientGalleryEndpointService>();
+        services.AddScoped<IAdminCalendarService, AdminCalendarService>();
+        services.AddScoped<IContactRequestService, ContactRequestService>();
+        services.AddScoped<IServiceCatalogService, ServiceCatalogService>();
+        services.AddScoped<IPortfolioQueryService, PortfolioQueryService>();
+        services.AddScoped<IAdminStatisticsService, AdminStatisticsService>();
+        services.AddScoped<ITestimonialService, TestimonialService>();
+        services.AddScoped<IHealthService, HealthService>();
 
         if (storageOptions.UseCloudinary)
         {
