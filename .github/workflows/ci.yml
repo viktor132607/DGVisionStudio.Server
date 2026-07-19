@@ -30,6 +30,8 @@ jobs:
         shell: bash
         run: |
           set +e
+          diagnostics_file="production-diagnostics.txt"
+          : > "${diagnostics_file}"
           endpoints=(
             "portfolio/slideshow"
             "portfolio/slideshow/intro-video"
@@ -40,23 +42,32 @@ jobs:
 
           for endpoint in "${endpoints[@]}"; do
             url="https://api.dgvisionstudio.com/api/${endpoint}"
-            echo "========== ${url} =========="
-            rm -f /tmp/headers.txt /tmp/body.txt
-            curl --silent --show-error --location \
-              --connect-timeout 10 \
-              --max-time 30 \
-              --dump-header /tmp/headers.txt \
-              --output /tmp/body.txt \
-              --write-out "curl_exit=%{exitcode} http=%{http_code} connect=%{time_connect}s starttransfer=%{time_starttransfer}s total=%{time_total}s size=%{size_download}\n" \
-              "${url}"
-            curl_status=$?
-            echo "process_exit=${curl_status}"
-            echo "--- headers ---"
-            cat /tmp/headers.txt 2>/dev/null || true
-            echo "--- body preview ---"
-            head -c 3000 /tmp/body.txt 2>/dev/null || true
-            echo
+            {
+              echo "========== ${url} =========="
+              rm -f /tmp/headers.txt /tmp/body.txt
+              curl --silent --show-error --location \
+                --connect-timeout 10 \
+                --max-time 30 \
+                --dump-header /tmp/headers.txt \
+                --output /tmp/body.txt \
+                --write-out "curl_exit=%{exitcode} http=%{http_code} connect=%{time_connect}s starttransfer=%{time_starttransfer}s total=%{time_total}s size=%{size_download}\n" \
+                "${url}"
+              curl_status=$?
+              echo "process_exit=${curl_status}"
+              echo "--- headers ---"
+              cat /tmp/headers.txt 2>/dev/null || true
+              echo "--- body preview ---"
+              head -c 5000 /tmp/body.txt 2>/dev/null || true
+              echo
+            } | tee -a "${diagnostics_file}"
           done
+
+      - name: Upload production diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-slideshow-diagnostics
+          path: production-diagnostics.txt
+          if-no-files-found: error
 
       - name: Test
         run: dotnet test --no-build --configuration Release --verbosity normal
