@@ -27,22 +27,33 @@ jobs:
         run: dotnet build --no-restore --configuration Release
 
       - name: Wait for production deployment
-        run: sleep 120
+        run: sleep 60
 
       - name: Diagnose production auth endpoint
         shell: bash
         run: |
           set +e
+          csrf_body=$(curl --silent --show-error --location \
+            --connect-timeout 10 \
+            --max-time 30 \
+            --cookie-jar auth-cookies.txt \
+            "https://api.dgvisionstudio.com/api/csrf")
+          csrf_token=$(printf '%s' "$csrf_body" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("csrfToken", ""))')
+
           curl --silent --show-error --location \
             --connect-timeout 10 \
             --max-time 30 \
+            --cookie auth-cookies.txt \
             --dump-header auth-headers.txt \
             --output auth-body.txt \
             --write-out "curl_exit=%{exitcode} http=%{http_code} connect=%{time_connect}s starttransfer=%{time_starttransfer}s total=%{time_total}s size=%{size_download}\n" \
             --request POST \
             --header "Content-Type: application/json" \
+            --header "X-CSRF-TOKEN: ${csrf_token}" \
             --data '{"email":"auth-probe-does-not-exist@example.invalid","password":"WrongPassword123!"}' \
             "https://api.dgvisionstudio.com/api/auth/login" | tee auth-summary.txt
+          echo "--- csrf response ---" | tee -a auth-summary.txt
+          echo "$csrf_body" | tee -a auth-summary.txt
           echo "--- headers ---" | tee -a auth-summary.txt
           cat auth-headers.txt | tee -a auth-summary.txt
           echo "--- body ---" | tee -a auth-summary.txt
@@ -56,6 +67,7 @@ jobs:
             auth-summary.txt
             auth-headers.txt
             auth-body.txt
+            auth-cookies.txt
           if-no-files-found: error
 
       - name: Test
