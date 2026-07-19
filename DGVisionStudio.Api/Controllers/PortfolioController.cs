@@ -1,6 +1,9 @@
+using DGVisionStudio.Api.Extensions;
+using DGVisionStudio.Api.Services;
+using DGVisionStudio.Api.Services.Interfaces;
 using DGVisionStudio.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DGVisionStudio.Infrastructure.Controllers;
 
@@ -8,128 +11,32 @@ namespace DGVisionStudio.Infrastructure.Controllers;
 [Route("api/portfolio")]
 public class PortfolioController : ControllerBase
 {
-	private readonly AppDbContext _context;
+    private readonly IPortfolioQueryService _service;
 
-	public PortfolioController(AppDbContext context)
-	{
-		_context = context;
-	}
+    [ActivatorUtilitiesConstructor]
+    public PortfolioController(IPortfolioQueryService service)
+    {
+        _service = service;
+    }
 
-	[HttpGet("categories")]
-	public async Task<IActionResult> GetCategories()
-	{
-		var items = await _context.PortfolioCategories
-			.Where(x => x.IsActive)
-			.OrderBy(x => x.DisplayOrder)
-			.ThenBy(x => x.Id)
-			.ToListAsync();
+    public PortfolioController(AppDbContext context)
+        : this(new PortfolioQueryService(context))
+    {
+    }
 
-		return Ok(items);
-	}
+    [HttpGet("categories")]
+    public async Task<IActionResult> GetCategories() =>
+        this.ToActionResult(await _service.GetCategoriesAsync());
 
-	[HttpGet("albums")]
-	public async Task<IActionResult> GetAlbums([FromQuery] int? categoryId = null)
-	{
-		var query = _context.PortfolioAlbums
-			.Include(x => x.PortfolioCategory)
-			.Where(x =>
-				x.IsPublished &&
-				!x.IsUserUploaded &&
-				x.PortfolioCategory != null &&
-				x.PortfolioCategory.IsActive)
-			.AsQueryable();
+    [HttpGet("albums")]
+    public async Task<IActionResult> GetAlbums([FromQuery] int? categoryId = null) =>
+        this.ToActionResult(await _service.GetAlbumsAsync(categoryId));
 
-		if (categoryId.HasValue)
-			query = query.Where(x => x.PortfolioCategoryId == categoryId.Value);
+    [HttpGet("albums/{slug}")]
+    public async Task<IActionResult> GetAlbum(string slug) =>
+        this.ToActionResult(await _service.GetAlbumAsync(slug));
 
-		var items = await query
-			.OrderBy(x => x.DisplayOrder)
-			.ThenByDescending(x => x.CreatedAtUtc)
-			.ThenBy(x => x.Id)
-			.ToListAsync();
-
-		return Ok(items);
-	}
-
-	[HttpGet("albums/{slug}")]
-	public async Task<IActionResult> GetAlbum(string slug)
-	{
-		var album = await _context.PortfolioAlbums
-			.Include(x => x.PortfolioCategory)
-			.Include(x => x.Images.Where(i => i.IsPublished).OrderBy(i => i.DisplayOrder))
-			.FirstOrDefaultAsync(x =>
-				x.Slug == slug &&
-				x.IsPublished &&
-				!x.IsUserUploaded &&
-				x.PortfolioCategory != null &&
-				x.PortfolioCategory.IsActive);
-
-		return album is null ? NotFound() : Ok(album);
-	}
-
-	[HttpGet("images")]
-	public async Task<IActionResult> GetImages([FromQuery] int? albumId = null)
-	{
-		var query = _context.PortfolioImages
-			.Include(x => x.PortfolioAlbum!)
-			.ThenInclude(x => x.PortfolioCategory)
-			.Where(x =>
-				x.IsPublished &&
-				x.PortfolioAlbum != null &&
-				x.PortfolioAlbum.IsPublished &&
-				!x.PortfolioAlbum.IsUserUploaded &&
-				x.PortfolioAlbum.PortfolioCategory != null &&
-				x.PortfolioAlbum.PortfolioCategory.IsActive)
-			.AsQueryable();
-
-		if (albumId.HasValue)
-			query = query.Where(x => x.PortfolioAlbumId == albumId.Value);
-
-		var items = await query
-			.OrderBy(x => x.DisplayOrder)
-			.ThenBy(x => x.Id)
-			.Select(x => new
-			{
-				x.Id,
-				x.ImageUrl,
-				x.ThumbnailUrl,
-				x.Name,
-				x.AltText,
-				x.Caption,
-				mediaType = IsVideoPath(x.ImageUrl) ? "Video" : "Image",
-				contentType = GetContentType(x.ImageUrl),
-				x.DisplayOrder,
-				x.IsPublished,
-				x.PortfolioAlbumId,
-				albumTitle = x.PortfolioAlbum != null ? x.PortfolioAlbum.Title : null,
-				categoryName = x.PortfolioAlbum != null && x.PortfolioAlbum.PortfolioCategory != null
-					? x.PortfolioAlbum.PortfolioCategory.Name
-					: null,
-				categoryNameEn = x.PortfolioAlbum != null && x.PortfolioAlbum.PortfolioCategory != null
-					? x.PortfolioAlbum.PortfolioCategory.NameEn
-					: null
-			})
-			.ToListAsync();
-
-		return Ok(items);
-	}
-
-	private static bool IsVideoPath(string? value)
-	{
-		var extension = Path.GetExtension((value ?? string.Empty).Split('?', '#')[0]).ToLowerInvariant();
-		return extension is ".mp4" or ".mov" or ".webm" or ".m4v";
-	}
-
-	private static string? GetContentType(string? value)
-	{
-		var extension = Path.GetExtension((value ?? string.Empty).Split('?', '#')[0]).ToLowerInvariant();
-		return extension switch
-		{
-			".mp4" => "video/mp4",
-			".mov" => "video/quicktime",
-			".webm" => "video/webm",
-			".m4v" => "video/x-m4v",
-			_ => null
-		};
-	}
+    [HttpGet("images")]
+    public async Task<IActionResult> GetImages([FromQuery] int? albumId = null) =>
+        this.ToActionResult(await _service.GetImagesAsync(albumId));
 }
