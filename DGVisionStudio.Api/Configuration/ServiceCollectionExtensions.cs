@@ -39,22 +39,38 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PortfolioCategoryAdminService>();
         services.AddScoped<PortfolioAlbumAdminService>();
         services.AddScoped<PortfolioImageAdminService>();
-        services.AddScoped<IAdminPortfolioService, AdminPortfolioService>();
+        services.AddScoped<IAdminPortfolioService>(serviceProvider =>
+            new AdminPortfolioService(
+                serviceProvider.GetRequiredService<PortfolioCategoryAdminService>(),
+                serviceProvider.GetRequiredService<PortfolioAlbumAdminService>(),
+                serviceProvider.GetRequiredService<PortfolioImageAdminService>()));
 
         services.AddScoped<AdminGalleryMediaMetadataService>();
         services.AddScoped<AdminGalleryMediaDownloadService>();
         services.AddScoped<AdminGalleryMediaUploadService>();
         services.AddScoped<AdminGalleryMediaMutationService>();
-        services.AddScoped<IAdminGalleryMediaManagementService, AdminGalleryMediaManagementService>();
+        services.AddScoped<IAdminGalleryMediaManagementService>(serviceProvider =>
+            new AdminGalleryMediaManagementService(
+                serviceProvider.GetRequiredService<AdminGalleryMediaMetadataService>(),
+                serviceProvider.GetRequiredService<AdminGalleryMediaDownloadService>(),
+                serviceProvider.GetRequiredService<AdminGalleryMediaUploadService>(),
+                serviceProvider.GetRequiredService<AdminGalleryMediaMutationService>()));
 
         services.AddScoped<AdminPrintRequestQueryService>();
         services.AddScoped<AdminPrintRequestCommandService>();
-        services.AddScoped<IAdminPrintRequestService, AdminPrintRequestService>();
+        services.AddScoped<IAdminPrintRequestService>(serviceProvider =>
+            new AdminPrintRequestService(
+                serviceProvider.GetRequiredService<AdminPrintRequestQueryService>(),
+                serviceProvider.GetRequiredService<AdminPrintRequestCommandService>()));
 
         services.AddScoped<AdminClientGalleryQueryService>();
         services.AddScoped<AdminClientGalleryCommandService>();
         services.AddScoped<AdminClientGalleryExportService>();
-        services.AddScoped<IAdminClientGalleryManagementService, AdminClientGalleryManagementService>();
+        services.AddScoped<IAdminClientGalleryManagementService>(serviceProvider =>
+            new AdminClientGalleryManagementService(
+                serviceProvider.GetRequiredService<AdminClientGalleryQueryService>(),
+                serviceProvider.GetRequiredService<AdminClientGalleryCommandService>(),
+                serviceProvider.GetRequiredService<AdminClientGalleryExportService>()));
 
         services.AddScoped<IAdminUserService, AdminUserService>();
         services.AddScoped<IClientGalleryEndpointService, ClientGalleryEndpointService>();
@@ -91,19 +107,30 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<ClientGalleryAdminQueryService>();
         services.AddScoped<ClientGalleryAdminCommandService>();
-        services.AddScoped<IClientGalleryAdminService, ClientGalleryAdminService>();
+        services.AddScoped<IClientGalleryAdminService>(serviceProvider =>
+            new ClientGalleryAdminService(
+                serviceProvider.GetRequiredService<ClientGalleryAdminQueryService>(),
+                serviceProvider.GetRequiredService<ClientGalleryAdminCommandService>()));
 
         services.AddScoped<ClientGalleryUserQueryService>();
         services.AddScoped<ClientGalleryUserCreationService>();
         services.AddScoped<ClientGalleryUserLifecycleService>();
-        services.AddScoped<IClientGalleryUserService, ClientGalleryUserService>();
+        services.AddScoped<IClientGalleryUserService>(serviceProvider =>
+            new ClientGalleryUserService(
+                serviceProvider.GetRequiredService<ClientGalleryUserQueryService>(),
+                serviceProvider.GetRequiredService<ClientGalleryUserCreationService>(),
+                serviceProvider.GetRequiredService<ClientGalleryUserLifecycleService>()));
 
         services.AddScoped<IClientGalleryAccessService, ClientGalleryAccessService>();
 
         services.AddScoped<ClientGalleryPhotoDownloadService>();
         services.AddScoped<ClientGalleryPhotoUploadService>();
         services.AddScoped<ClientGalleryPhotoMutationService>();
-        services.AddScoped<IClientGalleryPhotoService, ClientGalleryPhotoService>();
+        services.AddScoped<IClientGalleryPhotoService>(serviceProvider =>
+            new ClientGalleryPhotoService(
+                serviceProvider.GetRequiredService<ClientGalleryPhotoDownloadService>(),
+                serviceProvider.GetRequiredService<ClientGalleryPhotoUploadService>(),
+                serviceProvider.GetRequiredService<ClientGalleryPhotoMutationService>()));
 
         services.AddScoped<IClientGalleryExpiryService, ClientGalleryExpiryService>();
 
