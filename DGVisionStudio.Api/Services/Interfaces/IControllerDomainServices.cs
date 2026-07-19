@@ -93,3 +93,9 @@ public interface IHealthService
     ControllerServiceResult GetHealth();
     Task<ControllerServiceResult> GetReadinessAsync();
 }
+
+public interface IPrivacyEndpointService
+{
+    Task<ControllerServiceResult> ExportAsync(ClaimsPrincipal principal, string traceId);
+    Task<ControllerServiceResult> DeleteAccountAsync(ClaimsPrincipal principal, bool confirmed, string traceId);
+}
