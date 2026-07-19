@@ -1,7 +1,9 @@
 using System.Security.Claims;
 using DGVisionStudio.Application.DTOs;
+using DGVisionStudio.Application.DTOs.Account;
 using DGVisionStudio.Application.DTOs.ClientGalleries;
 using DGVisionStudio.Application.DTOs.Pagination;
+using DGVisionStudio.Application.DTOs.PrintRequests;
 using DGVisionStudio.Domain.Entities;
 using DGVisionStudio.Infrastructure.Controllers;
 using Microsoft.AspNetCore.Http;
@@ -98,4 +100,75 @@ public interface IPrivacyEndpointService
 {
     Task<ControllerServiceResult> ExportAsync(ClaimsPrincipal principal, string traceId);
     Task<ControllerServiceResult> DeleteAccountAsync(ClaimsPrincipal principal, bool confirmed, string traceId);
+}
+
+public interface IAccountEndpointService
+{
+    Task<ControllerServiceResult> DeleteAccountAsync(ClaimsPrincipal principal, DeleteAccountRequest request);
+}
+
+public interface IAdminAuditLogQueryService
+{
+    Task<ControllerServiceResult> GetAuditLogsAsync(
+        int page,
+        int pageSize,
+        string? entityType,
+        string? entityId,
+        string? adminEmail,
+        string? action);
+
+    Task<ControllerServiceResult> GetAuditLogByIdAsync(int id);
+}
+
+public interface IAdminGalleryArchiveService
+{
+    Task<ControllerServiceResult> CreatePhysicalArchiveAsync(CancellationToken cancellationToken);
+    Task<ControllerServiceResult> PrepareStreamingArchiveAsync(CancellationToken cancellationToken);
+}
+
+public interface IAdminGalleryAccessEndpointService
+{
+    Task<ControllerServiceResult> GetGalleryAccessesAsync(int galleryId);
+    Task<ControllerServiceResult> GrantAccessAsync(int galleryId, GrantGalleryAccessRequest request, AdminRequestContext context);
+    Task<ControllerServiceResult> UpdateAccessAsync(int galleryId, string userId, UpdateGalleryAccessRequest request, AdminRequestContext context);
+    Task<ControllerServiceResult> RemoveAccessAsync(int galleryId, string userId, AdminRequestContext context);
+}
+
+public interface IAdminGalleryMediaManagementService
+{
+    Task<ControllerServiceResult> UpdateMetadataAsync(int galleryId, int mediaId, UpdateGalleryMediaMetadataRequest request);
+    Task<ControllerServiceResult> DownloadPhotoAsync(int galleryId, int photoId, AdminRequestContext context);
+    Task<ControllerServiceResult> UploadPhotoAsync(int galleryId, IFormFile file, AdminRequestContext context);
+    Task<ControllerServiceResult> UploadVideoAsync(int galleryId, IFormFile file, AdminRequestContext context);
+    Task<ControllerServiceResult> UpdatePhotoAsync(int galleryId, int photoId, UpdateClientPhotoRequest request, AdminRequestContext context);
+    Task<ControllerServiceResult> DeletePhotoAsync(int galleryId, int photoId, AdminRequestContext context);
+    Task<ControllerServiceResult> SetCoverImageAsync(int galleryId, SetGalleryCoverRequest request, AdminRequestContext context);
+    Task<ControllerServiceResult> ReorderPhotosAsync(int galleryId, ReorderGalleryPhotosRequest request, AdminRequestContext context);
+}
+
+public interface IClientPrintRequestEndpointService
+{
+    Task<ControllerServiceResult> GetMineAsync(ClaimsPrincipal principal);
+    Task<ControllerServiceResult> GetMineByIdAsync(ClaimsPrincipal principal, int id);
+    Task<ControllerServiceResult> CreateAsync(ClaimsPrincipal principal, CreatePrintRequestDto dto);
+}
+
+public interface ICsrfTokenService
+{
+    string GenerateToken();
+}
+
+public interface IDebugUserService
+{
+    Task<ControllerServiceResult> GetUsersAsync();
+}
+
+public interface ISiteSettingsService
+{
+    Task<ControllerServiceResult> GetAllAsync();
+}
+
+public interface IHomeStatusService
+{
+    ControllerServiceResult GetStatus();
 }
