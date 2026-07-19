@@ -30,7 +30,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<AuthRegistrationService>();
         services.AddScoped<AuthSessionService>();
         services.AddScoped<AuthPasswordService>();
-        services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IAuthService>(serviceProvider =>
+            new AuthService(
+                serviceProvider.GetRequiredService<AuthRegistrationService>(),
+                serviceProvider.GetRequiredService<AuthSessionService>(),
+                serviceProvider.GetRequiredService<AuthPasswordService>()));
 
         services.AddScoped<PortfolioCategoryAdminService>();
         services.AddScoped<PortfolioAlbumAdminService>();
