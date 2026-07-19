@@ -13,18 +13,25 @@ public static class ControllerServiceResultExtensions
             StatusCodes.Status204NoContent => controller.NoContent(),
             StatusCodes.Status400BadRequest => controller.BadRequest(result.Value),
             StatusCodes.Status401Unauthorized => controller.Unauthorized(result.Value),
-            StatusCodes.Status404NotFound => controller.NotFound(result.Value),
+            StatusCodes.Status404NotFound => result.Value is null
+                ? controller.NotFound()
+                : controller.NotFound(result.Value),
             _ => controller.StatusCode(result.StatusCode, result.Value)
         };
 
-    public static AdminRequestContext CreateAdminRequestContext(this ControllerBase controller) =>
-        new(
-            controller.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty,
-            controller.User.FindFirstValue(ClaimTypes.Email)
-                ?? controller.User.Identity?.Name
+    public static AdminRequestContext CreateAdminRequestContext(this ControllerBase controller)
+    {
+        var httpContext = controller.ControllerContext.HttpContext;
+        var user = httpContext?.User ?? new ClaimsPrincipal(new ClaimsIdentity());
+
+        return new AdminRequestContext(
+            user.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty,
+            user.FindFirstValue(ClaimTypes.Email)
+                ?? user.Identity?.Name
                 ?? string.Empty,
-            controller.User.Identity?.Name ?? string.Empty,
-            controller.HttpContext.Connection.RemoteIpAddress?.ToString(),
-            controller.Request.Headers.UserAgent.ToString(),
-            controller.HttpContext.TraceIdentifier);
+            user.Identity?.Name ?? string.Empty,
+            httpContext?.Connection.RemoteIpAddress?.ToString(),
+            httpContext?.Request.Headers.UserAgent.ToString() ?? string.Empty,
+            httpContext?.TraceIdentifier ?? string.Empty);
+    }
 }
