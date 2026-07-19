@@ -39,7 +39,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<AdminPrintRequestCommandService>();
         services.AddScoped<IAdminPrintRequestService, AdminPrintRequestService>();
 
+        services.AddScoped<AdminClientGalleryQueryService>();
+        services.AddScoped<AdminClientGalleryCommandService>();
+        services.AddScoped<AdminClientGalleryExportService>();
         services.AddScoped<IAdminClientGalleryManagementService, AdminClientGalleryManagementService>();
+
         services.AddScoped<IAdminUserService, AdminUserService>();
         services.AddScoped<IClientGalleryEndpointService, ClientGalleryEndpointService>();
         services.AddScoped<IAdminCalendarService, AdminCalendarService>();
