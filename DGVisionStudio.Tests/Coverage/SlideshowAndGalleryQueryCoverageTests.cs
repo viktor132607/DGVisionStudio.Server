@@ -230,7 +230,7 @@ public sealed class ClientGalleryUserQueryAdditionalTests
         unauthorized.Should().BeNull();
         ownerDetails.Should().NotBeNull();
         ownerDetails!.DownloadEnabled.Should().BeFalse();
-        ownerDetails.Photos.Should().ContainSingle(x => x.ImageUrl == "/published.jpg");
+        ownerDetails.Photos.Should().ContainSingle(x => x.PreviewUrl == "/published.jpg");
         guestDetails.Should().NotBeNull();
         guestDetails!.PreviewEnabled.Should().BeTrue();
         guestDetails.DownloadEnabled.Should().BeTrue();
