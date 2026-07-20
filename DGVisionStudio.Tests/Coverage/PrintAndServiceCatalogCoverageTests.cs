@@ -22,7 +22,7 @@ public sealed class AdminPrintRequestCommandAdditionalTests
     public async Task UpdateStatusAsync_MapsEveryAlbumStatus(string status, UserClientGalleryStatus expected)
     {
         await using var fixture = await GallerySqliteFixture.CreateAsync();
-        var album = AddClientUploadAlbum(fixture.Context, seen: false);
+        var album = AddAlbum(fixture.Context, clientUpload: true, seen: false);
         await fixture.Context.SaveChangesAsync();
         var service = new AdminPrintRequestCommandService(fixture.Context);
 
@@ -40,22 +40,15 @@ public sealed class AdminPrintRequestCommandAdditionalTests
     {
         await using var fixture = await GallerySqliteFixture.CreateAsync();
         var user = TestUsers.Create("client@example.com", "client");
-        var request = new PrintRequest
-        {
-            User = user,
-            UserId = user.Id,
-            FullName = "Client",
-            Email = "client@example.com",
-            Status = "New",
-            IsSeenByAdmin = false
-        };
-        var album = AddClientUploadAlbum(fixture.Context, seen: false);
+        var requestAlbum = AddAlbum(fixture.Context, clientUpload: false, seen: true);
+        var request = Request(user, requestAlbum, "client@example.com", seen: false);
+        var uploadAlbum = AddAlbum(fixture.Context, clientUpload: true, seen: false);
         fixture.Context.AddRange(user, request);
         await fixture.Context.SaveChangesAsync();
         var service = new AdminPrintRequestCommandService(fixture.Context);
 
         var direct = await service.MarkSeenAsync(request.Id);
-        var upload = await service.MarkSeenAsync(-album.Id);
+        var upload = await service.MarkSeenAsync(-uploadAlbum.Id);
         var missingDirect = await service.MarkSeenAsync(999999);
         var missingUpload = await service.MarkSeenAsync(-999999);
 
@@ -63,7 +56,7 @@ public sealed class AdminPrintRequestCommandAdditionalTests
         upload.StatusCode.Should().Be(StatusCodes.Status204NoContent);
         request.IsSeenByAdmin.Should().BeTrue();
         request.UpdatedAtUtc.Should().NotBeNull();
-        album.IsSeenByAdmin.Should().BeTrue();
+        uploadAlbum.IsSeenByAdmin.Should().BeTrue();
         missingDirect.StatusCode.Should().Be(StatusCodes.Status404NotFound);
         missingUpload.StatusCode.Should().Be(StatusCodes.Status404NotFound);
     }
@@ -73,19 +66,14 @@ public sealed class AdminPrintRequestCommandAdditionalTests
     {
         await using var fixture = await GallerySqliteFixture.CreateAsync();
         var user = TestUsers.Create("client@example.com", "client");
-        var unseen = Request(user, "unseen@example.com", seen: false);
-        var alreadySeen = Request(user, "seen@example.com", seen: true);
-        var eligible = AddClientUploadAlbum(fixture.Context, seen: false);
-        var deleted = AddClientUploadAlbum(fixture.Context, seen: false);
+        var requestAlbum = AddAlbum(fixture.Context, clientUpload: false, seen: true);
+        var unseen = Request(user, requestAlbum, "unseen@example.com", seen: false);
+        var alreadySeen = Request(user, requestAlbum, "seen@example.com", seen: true);
+        var eligible = AddAlbum(fixture.Context, clientUpload: true, seen: false);
+        var deleted = AddAlbum(fixture.Context, clientUpload: true, seen: false);
         deleted.IsDeleted = true;
-        var ordinary = new PortfolioAlbum
-        {
-            Slug = "ordinary",
-            Title = "Ordinary",
-            IsUserUploaded = false,
-            IsSeenByAdmin = false
-        };
-        fixture.Context.AddRange(user, unseen, alreadySeen, ordinary);
+        var ordinary = AddAlbum(fixture.Context, clientUpload: false, seen: false);
+        fixture.Context.AddRange(user, unseen, alreadySeen);
         await fixture.Context.SaveChangesAsync();
         var service = new AdminPrintRequestCommandService(fixture.Context);
 
@@ -105,7 +93,8 @@ public sealed class AdminPrintRequestCommandAdditionalTests
     {
         await using var fixture = await GallerySqliteFixture.CreateAsync();
         var user = TestUsers.Create("client@example.com", "client");
-        var request = Request(user, "request@example.com", seen: false);
+        var requestAlbum = AddAlbum(fixture.Context, clientUpload: false, seen: true);
+        var request = Request(user, requestAlbum, "request@example.com", seen: false);
         fixture.Context.AddRange(user, request);
         await fixture.Context.SaveChangesAsync();
         var service = new AdminPrintRequestCommandService(fixture.Context);
@@ -118,31 +107,45 @@ public sealed class AdminPrintRequestCommandAdditionalTests
         (await fixture.Context.PrintRequests.CountAsync()).Should().Be(0);
     }
 
-    private static PrintRequest Request(ApplicationUser user, string email, bool seen) => new()
-    {
-        User = user,
-        UserId = user.Id,
-        FullName = "Client",
-        Email = email,
-        Status = "New",
-        IsSeenByAdmin = seen
-    };
+    private static PrintRequest Request(
+        ApplicationUser user,
+        PortfolioAlbum album,
+        string email,
+        bool seen) => new()
+        {
+            User = user,
+            UserId = user.Id,
+            PortfolioAlbum = album,
+            FullName = "Client",
+            Email = email,
+            Status = "New",
+            IsSeenByAdmin = seen
+        };
 
-    private static PortfolioAlbum AddClientUploadAlbum(
+    private static PortfolioAlbum AddAlbum(
         DGVisionStudio.Infrastructure.Data.AppDbContext context,
+        bool clientUpload,
         bool seen)
     {
+        var category = new PortfolioCategory
+        {
+            Key = Guid.NewGuid().ToString("N"),
+            Name = "Category",
+            NameEn = "Category",
+            IsActive = true
+        };
         var album = new PortfolioAlbum
         {
+            PortfolioCategory = category,
             Slug = Guid.NewGuid().ToString("N"),
-            Title = "Client upload",
-            GalleryType = GalleryType.ClientPrintUpload,
-            IsUserUploaded = true,
+            Title = clientUpload ? "Client upload" : "Portfolio album",
+            GalleryType = clientUpload ? GalleryType.ClientPrintUpload : default,
+            IsUserUploaded = clientUpload,
             IsSeenByAdmin = seen,
             AllowClientAccess = true,
             IsPublished = true
         };
-        context.PortfolioAlbums.Add(album);
+        context.AddRange(category, album);
         return album;
     }
 }
