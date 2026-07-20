@@ -31,7 +31,7 @@ public sealed class FileStorageServiceTests : IDisposable
         var relativePath = await _service.SaveFileAsync(input, "photo.txt", "uploads/test");
 
         relativePath.Should().StartWith("/uploads/test/");
-        await _service.FileExistsAsync(relativePath).Should().BeTrueAsync();
+        (await _service.FileExistsAsync(relativePath)).Should().BeTrue();
 
         await using var stored = await _service.OpenReadAsync(relativePath);
         stored.Should().NotBeNull();
@@ -39,7 +39,7 @@ public sealed class FileStorageServiceTests : IDisposable
         (await reader.ReadToEndAsync()).Should().Be("stored content");
 
         await _service.DeleteFileAsync(relativePath);
-        await _service.FileExistsAsync(relativePath).Should().BeFalseAsync();
+        (await _service.FileExistsAsync(relativePath)).Should().BeFalse();
     }
 
     [Fact]
