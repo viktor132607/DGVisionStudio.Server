@@ -115,9 +115,12 @@ public sealed class DebugUserServiceTests
     [Fact]
     public async Task GetUsersAsync_ProjectsUsersAndRoles()
     {
+        await using var context = TestDbContextFactory.CreateContext();
         var user = TestUsers.Create("user@example.com", "user-1");
         user.EmailConfirmed = true;
-        var manager = new ConfigurableUserManager([user]);
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
+        var manager = new ConfigurableUserManager([user]) { UsersSource = context.Users };
         manager.SetRoles(user, "User", "Admin");
         var service = new DebugUserService(manager);
 
