@@ -19,7 +19,7 @@ internal sealed class ConfigurableUserManager : UserManager<ApplicationUser>
     public ConfigurableUserManager(IEnumerable<ApplicationUser>? users = null)
         : base(
             new TestUserStore(),
-            Options.Create(new IdentityOptions()),
+            Microsoft.Extensions.Options.Options.Create(new IdentityOptions()),
             new PasswordHasher<ApplicationUser>(),
             Array.Empty<IUserValidator<ApplicationUser>>(),
             Array.Empty<IPasswordValidator<ApplicationUser>>(),
@@ -129,9 +129,9 @@ internal sealed class ConfigurableSignInManager : SignInManager<ApplicationUser>
             userManager,
             new HttpContextAccessor(),
             new TestClaimsPrincipalFactory(),
-            Options.Create(new IdentityOptions()),
+            Microsoft.Extensions.Options.Options.Create(new IdentityOptions()),
             NullLogger<SignInManager<ApplicationUser>>.Instance,
-            new AuthenticationSchemeProvider(Options.Create(new AuthenticationOptions())),
+            new AuthenticationSchemeProvider(Microsoft.Extensions.Options.Options.Create(new AuthenticationOptions())),
             new DefaultUserConfirmation<ApplicationUser>())
     {
     }
