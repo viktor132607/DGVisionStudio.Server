@@ -40,17 +40,17 @@ public sealed class HomeSlideshowImageService(
             .ToListAsync();
         var settings = await settingsService.LoadAsync();
         var savedIds = HomeSlideshowSettingsService.NormalizeIds(settings.ImageIds);
-        var currentIds = savedIds.Count > 0
+        var requestedIds = savedIds.Count > 0
             ? savedIds
             : availableImages.Select(x => x.Id).ToList();
         var availableById = availableImages.ToDictionary(x => x.Id);
+        var currentIds = requestedIds
+            .Where(availableById.ContainsKey)
+            .ToList();
         var currentIdSet = currentIds.ToHashSet();
 
         var selectedImages = currentIds
-            .Select((id, index) => availableById.TryGetValue(id, out var image)
-                ? ToDto(image, true, index + 1)
-                : null)
-            .OfType<SlideshowImageDto>()
+            .Select((id, index) => ToDto(availableById[id], true, index + 1))
             .ToList();
 
         var allImages = availableImages.Select(image =>
