@@ -18,20 +18,14 @@ public class LocalFileStorageService : IFileStorageService
 		string folderPath,
 		CancellationToken cancellationToken = default)
 	{
-		var webRootPath = GetWebRootPath();
-
-		var safeFolderPath = folderPath
-			.Replace('\\', Path.DirectorySeparatorChar)
-			.Replace('/', Path.DirectorySeparatorChar)
-			.Trim(Path.DirectorySeparatorChar);
-
-		var targetDirectory = Path.Combine(webRootPath, safeFolderPath);
+		var safeFolderPath = NormalizeRelativePath(folderPath);
+		var targetDirectory = ResolveWithinWebRoot(safeFolderPath);
 		Directory.CreateDirectory(targetDirectory);
 
 		var extension = Path.GetExtension(fileName);
 		var safeExtension = string.IsNullOrWhiteSpace(extension) ? ".jpg" : extension.ToLowerInvariant();
 		var safeFileName = $"{Guid.NewGuid():N}{safeExtension}";
-		var fullPath = Path.Combine(targetDirectory, safeFileName);
+		var fullPath = ResolveWithinWebRoot(Path.Combine(safeFolderPath, safeFileName));
 
 		await using var output = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
 		await fileStream.CopyToAsync(output, cancellationToken);
@@ -57,7 +51,7 @@ public class LocalFileStorageService : IFileStorageService
 		if (string.IsNullOrWhiteSpace(relativePath))
 			return Task.CompletedTask;
 
-		var fullPath = GetFullPath(relativePath);
+		var fullPath = ResolveWithinWebRoot(NormalizeRelativePath(relativePath));
 
 		if (File.Exists(fullPath))
 		{
@@ -74,7 +68,7 @@ public class LocalFileStorageService : IFileStorageService
 		if (string.IsNullOrWhiteSpace(relativePath))
 			return Task.FromResult<Stream?>(null);
 
-		var fullPath = GetFullPath(relativePath);
+		var fullPath = ResolveWithinWebRoot(NormalizeRelativePath(relativePath));
 
 		if (!File.Exists(fullPath))
 			return Task.FromResult<Stream?>(null);
@@ -90,7 +84,7 @@ public class LocalFileStorageService : IFileStorageService
 		if (string.IsNullOrWhiteSpace(relativePath))
 			return Task.FromResult(false);
 
-		var fullPath = GetFullPath(relativePath);
+		var fullPath = ResolveWithinWebRoot(NormalizeRelativePath(relativePath));
 		return Task.FromResult(File.Exists(fullPath));
 	}
 
@@ -102,15 +96,24 @@ public class LocalFileStorageService : IFileStorageService
 		return Path.Combine(_environment.ContentRootPath, "wwwroot");
 	}
 
-	private string GetFullPath(string relativePath)
-	{
-		var webRootPath = GetWebRootPath();
-
-		var normalizedRelativePath = relativePath
+	private static string NormalizeRelativePath(string value) =>
+		value
 			.TrimStart('/', '\\')
 			.Replace('\\', Path.DirectorySeparatorChar)
 			.Replace('/', Path.DirectorySeparatorChar);
 
-		return Path.Combine(webRootPath, normalizedRelativePath);
+	private string ResolveWithinWebRoot(string relativePath)
+	{
+		var webRootPath = Path.GetFullPath(GetWebRootPath());
+		var fullPath = Path.GetFullPath(Path.Combine(webRootPath, relativePath));
+		var rootPrefix = webRootPath.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+
+		if (!fullPath.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase) &&
+			!string.Equals(fullPath, webRootPath, StringComparison.OrdinalIgnoreCase))
+		{
+			throw new InvalidOperationException("Storage path must stay within the web root.");
+		}
+
+		return fullPath;
 	}
 }
