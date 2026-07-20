@@ -32,6 +32,7 @@ internal sealed class ConfigurableUserManager : UserManager<ApplicationUser>
     }
 
     public ApplicationUser? CurrentUser { get; set; }
+    public IQueryable<ApplicationUser>? UsersSource { get; set; }
     public bool IsLockedOutResult { get; set; }
     public bool CheckPasswordResult { get; set; } = true;
     public IdentityResult CreateResult { get; set; } = IdentityResult.Success;
@@ -44,7 +45,7 @@ internal sealed class ConfigurableUserManager : UserManager<ApplicationUser>
     public List<(string UserId, string Role)> AddedRoles { get; } = [];
     public List<(string UserId, string Role)> RemovedRoles { get; } = [];
 
-    public override IQueryable<ApplicationUser> Users => _users.AsQueryable();
+    public override IQueryable<ApplicationUser> Users => UsersSource ?? _users.AsQueryable();
 
     public void SetRoles(ApplicationUser user, params string[] roles) =>
         _roles[user.Id] = roles.ToHashSet(StringComparer.OrdinalIgnoreCase);
