@@ -18,6 +18,8 @@ public sealed class AppDataSeederTests
         await InvokeSeederAsync("SeedTestimonialsTestData", fixture.Context);
         await InvokeSeederAsync("SeedSiteSettings", fixture.Context);
 
+        fixture.Context.ChangeTracker.Clear();
+
         await InvokeSeederAsync("SeedPortfolio", fixture.Context);
         await InvokeSeederAsync("SeedServicesTestData", fixture.Context);
         await InvokeSeederAsync("SeedTestimonialsTestData", fixture.Context);
