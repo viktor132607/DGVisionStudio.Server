@@ -124,18 +124,19 @@ public sealed class AdminCalendarServiceTests
     {
         await using var context = TestDbContextFactory.CreateContext();
         var service = new AdminCalendarService(context);
+        var invalidStart = DateTime.UtcNow;
 
         var blank = await service.CreateAsync(new CalendarEventDto
         {
             Title = " ",
-            StartAtUtc = DateTime.UtcNow,
-            EndAtUtc = DateTime.UtcNow.AddHours(1)
+            StartAtUtc = invalidStart,
+            EndAtUtc = invalidStart.AddHours(1)
         });
         var invalidRange = await service.CreateAsync(new CalendarEventDto
         {
             Title = "Session",
-            StartAtUtc = DateTime.UtcNow,
-            EndAtUtc = DateTime.UtcNow
+            StartAtUtc = invalidStart,
+            EndAtUtc = invalidStart
         });
 
         blank.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
