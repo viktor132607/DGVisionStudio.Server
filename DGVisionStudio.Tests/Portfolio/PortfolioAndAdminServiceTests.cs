@@ -26,7 +26,7 @@ public sealed class PortfolioCategoryAdminServiceTests
 
         var invalid = await service.CreateCategoryAsync(
             new CreatePortfolioCategoryRequest { Key = "portraits", Name = " ", NameEn = "Portraits" },
-            AdminContext());
+            PortfolioAdminTestContext.Create());
         var valid = await service.CreateCategoryAsync(
             new CreatePortfolioCategoryRequest
             {
@@ -36,7 +36,7 @@ public sealed class PortfolioCategoryAdminServiceTests
                 DisplayOrder = 0,
                 IsActive = true
             },
-            AdminContext());
+            PortfolioAdminTestContext.Create());
 
         invalid.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
         valid.StatusCode.Should().Be(StatusCodes.Status200OK);
@@ -68,7 +68,7 @@ public sealed class PortfolioAlbumAdminServiceTests
                 Slug = "album",
                 Title = "Албум"
             },
-            AdminContext());
+            PortfolioAdminTestContext.Create());
         var category = new PortfolioCategory
         {
             Key = "weddings",
@@ -88,7 +88,7 @@ public sealed class PortfolioAlbumAdminServiceTests
                 ColumnNumber = 1,
                 IsPublished = true
             },
-            AdminContext());
+            PortfolioAdminTestContext.Create());
 
         invalid.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
         valid.StatusCode.Should().Be(StatusCodes.Status200OK);
@@ -114,7 +114,7 @@ public sealed class PortfolioImageAdminServiceTests
 
         var invalid = await service.CreateImageAsync(
             new CreatePortfolioImageRequest { PortfolioAlbumId = 999, ImageUrl = "/missing.jpg" },
-            AdminContext());
+            PortfolioAdminTestContext.Create());
         var category = new PortfolioCategory { Key = "events", Name = "Събития", NameEn = "Events" };
         var album = new PortfolioAlbum
         {
@@ -134,7 +134,7 @@ public sealed class PortfolioImageAdminServiceTests
                 DisplayOrder = 1,
                 IsPublished = true
             },
-            AdminContext());
+            PortfolioAdminTestContext.Create());
 
         invalid.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
         valid.StatusCode.Should().Be(StatusCodes.Status200OK);
@@ -315,10 +315,13 @@ public sealed class AdminStatisticsServiceTests
     }
 }
 
-file static AdminRequestContext AdminContext() => new(
-    "admin-1",
-    "admin@example.com",
-    "Admin",
-    "127.0.0.1",
-    "tests",
-    "trace-1");
+internal static class PortfolioAdminTestContext
+{
+    public static AdminRequestContext Create() => new(
+        "admin-1",
+        "admin@example.com",
+        "Admin",
+        "127.0.0.1",
+        "tests",
+        "trace-1");
+}
