@@ -1,4 +1,4 @@
-﻿using DGVisionStudio.Application.Interfaces;
+using DGVisionStudio.Application.Interfaces;
 using Microsoft.AspNetCore.Hosting;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
@@ -11,171 +11,184 @@ namespace DGVisionStudio.Infrastructure.Services;
 
 public class FileStorageService : IFileStorageService
 {
-	private readonly IWebHostEnvironment _environment;
+    private readonly IWebHostEnvironment _environment;
 
-	public FileStorageService(IWebHostEnvironment environment)
-	{
-		_environment = environment;
-	}
+    public FileStorageService(IWebHostEnvironment environment)
+    {
+        _environment = environment;
+    }
 
-	public async Task<string> SaveFileAsync(
-		Stream fileStream,
-		string fileName,
-		string folderPath,
-		CancellationToken cancellationToken = default)
-	{
-		var webRootPath = GetWebRootPath();
-		var safeFolderPath = NormalizeFolderPath(folderPath);
+    public async Task<string> SaveFileAsync(
+        Stream fileStream,
+        string fileName,
+        string folderPath,
+        CancellationToken cancellationToken = default)
+    {
+        var targetDirectory = ResolveDirectoryPath(folderPath);
+        Directory.CreateDirectory(targetDirectory);
 
-		var targetDirectory = Path.Combine(webRootPath, safeFolderPath);
-		Directory.CreateDirectory(targetDirectory);
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
+        var generatedFileName = $"{Guid.NewGuid():N}{extension}";
+        var fullPath = Path.Combine(targetDirectory, generatedFileName);
 
-		var extension = Path.GetExtension(fileName).ToLowerInvariant();
-		var generatedFileName = $"{Guid.NewGuid():N}{extension}";
-		var fullPath = Path.Combine(targetDirectory, generatedFileName);
+        await using var output = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        await fileStream.CopyToAsync(output, cancellationToken);
 
-		await using var output = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
-		await fileStream.CopyToAsync(output, cancellationToken);
+        return GetRelativeUrl(fullPath);
+    }
 
-		var relativePath = "/" + Path.Combine(safeFolderPath, generatedFileName).Replace('\\', '/');
-		return relativePath;
-	}
+    public async Task<string> SaveImageAsync(
+        Stream fileStream,
+        string fileName,
+        string folderPath,
+        int maxWidth = 2400,
+        int quality = 82,
+        CancellationToken cancellationToken = default)
+    {
+        var targetDirectory = ResolveDirectoryPath(folderPath);
+        Directory.CreateDirectory(targetDirectory);
 
-	public async Task<string> SaveImageAsync(
-		Stream fileStream,
-		string fileName,
-		string folderPath,
-		int maxWidth = 2400,
-		int quality = 82,
-		CancellationToken cancellationToken = default)
-	{
-		var webRootPath = GetWebRootPath();
-		var safeFolderPath = NormalizeFolderPath(folderPath);
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
+        var generatedFileName = $"{Guid.NewGuid():N}{extension}";
+        var fullPath = Path.Combine(targetDirectory, generatedFileName);
 
-		var targetDirectory = Path.Combine(webRootPath, safeFolderPath);
-		Directory.CreateDirectory(targetDirectory);
+        using var image = await ImageSharpImage.LoadAsync(fileStream, cancellationToken);
 
-		var extension = Path.GetExtension(fileName).ToLowerInvariant();
-		var generatedFileName = $"{Guid.NewGuid():N}{extension}";
-		var fullPath = Path.Combine(targetDirectory, generatedFileName);
+        if (maxWidth > 0 && image.Width > maxWidth)
+        {
+            image.Mutate(x => x.Resize(new ResizeOptions
+            {
+                Mode = ResizeMode.Max,
+                Size = new Size(maxWidth, 0)
+            }));
+        }
 
-		using var image = await ImageSharpImage.LoadAsync(fileStream, cancellationToken);
+        image.Metadata.ExifProfile = null;
+        image.Metadata.IccProfile = null;
+        image.Metadata.IptcProfile = null;
+        image.Metadata.XmpProfile = null;
 
-		if (maxWidth > 0 && image.Width > maxWidth)
-		{
-			image.Mutate(x => x.Resize(new ResizeOptions
-			{
-				Mode = ResizeMode.Max,
-				Size = new Size(maxWidth, 0)
-			}));
-		}
+        await using var output = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
 
-		image.Metadata.ExifProfile = null;
-		image.Metadata.IccProfile = null;
-		image.Metadata.IptcProfile = null;
-		image.Metadata.XmpProfile = null;
+        if (extension is ".jpg" or ".jpeg")
+        {
+            await image.SaveAsJpegAsync(output, new JpegEncoder
+            {
+                Quality = quality
+            }, cancellationToken);
+        }
+        else if (extension == ".png")
+        {
+            await image.SaveAsPngAsync(output, new PngEncoder
+            {
+                CompressionLevel = PngCompressionLevel.BestCompression
+            }, cancellationToken);
+        }
+        else if (extension == ".webp")
+        {
+            await image.SaveAsWebpAsync(output, new WebpEncoder
+            {
+                Quality = quality
+            }, cancellationToken);
+        }
+        else
+        {
+            throw new InvalidOperationException("Unsupported image format.");
+        }
 
-		await using var output = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        return GetRelativeUrl(fullPath);
+    }
 
-		if (extension is ".jpg" or ".jpeg")
-		{
-			await image.SaveAsJpegAsync(output, new JpegEncoder
-			{
-				Quality = quality
-			}, cancellationToken);
-		}
-		else if (extension == ".png")
-		{
-			await image.SaveAsPngAsync(output, new PngEncoder
-			{
-				CompressionLevel = PngCompressionLevel.BestCompression
-			}, cancellationToken);
-		}
-		else if (extension == ".webp")
-		{
-			await image.SaveAsWebpAsync(output, new WebpEncoder
-			{
-				Quality = quality
-			}, cancellationToken);
-		}
-		else
-		{
-			throw new InvalidOperationException("Unsupported image format.");
-		}
+    public Task DeleteFileAsync(
+        string relativePath,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryResolvePath(relativePath, out var fullPath))
+            return Task.CompletedTask;
 
-		var relativePath = "/" + Path.Combine(safeFolderPath, generatedFileName).Replace('\\', '/');
-		return relativePath;
-	}
+        if (File.Exists(fullPath))
+            File.Delete(fullPath);
 
-	public Task DeleteFileAsync(
-		string relativePath,
-		CancellationToken cancellationToken = default)
-	{
-		if (string.IsNullOrWhiteSpace(relativePath))
-			return Task.CompletedTask;
+        return Task.CompletedTask;
+    }
 
-		var fullPath = GetFullPath(relativePath);
+    public Task<Stream?> OpenReadAsync(
+        string relativePath,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryResolvePath(relativePath, out var fullPath) || !File.Exists(fullPath))
+            return Task.FromResult<Stream?>(null);
 
-		if (File.Exists(fullPath))
-		{
-			File.Delete(fullPath);
-		}
+        Stream stream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        return Task.FromResult<Stream?>(stream);
+    }
 
-		return Task.CompletedTask;
-	}
+    public Task<bool> FileExistsAsync(
+        string relativePath,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(
+            TryResolvePath(relativePath, out var fullPath) && File.Exists(fullPath));
+    }
 
-	public Task<Stream?> OpenReadAsync(
-		string relativePath,
-		CancellationToken cancellationToken = default)
-	{
-		if (string.IsNullOrWhiteSpace(relativePath))
-			return Task.FromResult<Stream?>(null);
+    private string ResolveDirectoryPath(string folderPath)
+    {
+        if (string.IsNullOrWhiteSpace(folderPath))
+            return GetWebRootPath();
 
-		var fullPath = GetFullPath(relativePath);
+        if (!TryResolvePath(folderPath, out var fullPath))
+            throw new ArgumentException("Folder path must stay within the configured web root.", nameof(folderPath));
 
-		if (!File.Exists(fullPath))
-			return Task.FromResult<Stream?>(null);
+        return fullPath;
+    }
 
-		Stream stream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-		return Task.FromResult<Stream?>(stream);
-	}
+    private bool TryResolvePath(string relativePath, out string fullPath)
+    {
+        fullPath = string.Empty;
 
-	public Task<bool> FileExistsAsync(
-		string relativePath,
-		CancellationToken cancellationToken = default)
-	{
-		if (string.IsNullOrWhiteSpace(relativePath))
-			return Task.FromResult(false);
+        if (string.IsNullOrWhiteSpace(relativePath))
+            return false;
 
-		var fullPath = GetFullPath(relativePath);
-		return Task.FromResult(File.Exists(fullPath));
-	}
+        var normalizedRelativePath = relativePath
+            .TrimStart('/', '\\')
+            .Replace('\\', Path.DirectorySeparatorChar)
+            .Replace('/', Path.DirectorySeparatorChar);
 
-	private string GetWebRootPath()
-	{
-		if (!string.IsNullOrWhiteSpace(_environment.WebRootPath))
-			return _environment.WebRootPath;
+        if (Path.IsPathRooted(normalizedRelativePath))
+            return false;
 
-		return Path.Combine(_environment.ContentRootPath, "wwwroot");
-	}
+        var webRootPath = GetWebRootPath();
+        var candidatePath = Path.GetFullPath(Path.Combine(webRootPath, normalizedRelativePath));
+        var webRootPrefix = webRootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+        var comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
 
-	private static string NormalizeFolderPath(string folderPath)
-	{
-		return folderPath
-			.Replace('\\', Path.DirectorySeparatorChar)
-			.Replace('/', Path.DirectorySeparatorChar)
-			.Trim(Path.DirectorySeparatorChar);
-	}
+        if (!candidatePath.Equals(webRootPath, comparison) &&
+            !candidatePath.StartsWith(webRootPrefix, comparison))
+        {
+            return false;
+        }
 
-	private string GetFullPath(string relativePath)
-	{
-		var webRootPath = GetWebRootPath();
+        fullPath = candidatePath;
+        return true;
+    }
 
-		var normalizedRelativePath = relativePath
-			.TrimStart('/', '\\')
-			.Replace('\\', Path.DirectorySeparatorChar)
-			.Replace('/', Path.DirectorySeparatorChar);
+    private string GetWebRootPath()
+    {
+        var configuredPath = !string.IsNullOrWhiteSpace(_environment.WebRootPath)
+            ? _environment.WebRootPath
+            : Path.Combine(_environment.ContentRootPath, "wwwroot");
 
-		return Path.Combine(webRootPath, normalizedRelativePath);
-	}
+        return Path.GetFullPath(configuredPath);
+    }
+
+    private string GetRelativeUrl(string fullPath)
+    {
+        var relativePath = Path.GetRelativePath(GetWebRootPath(), fullPath)
+            .Replace('\\', '/');
+
+        return "/" + relativePath;
+    }
 }
