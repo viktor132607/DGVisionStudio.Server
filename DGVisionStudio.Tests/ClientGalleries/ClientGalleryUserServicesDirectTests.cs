@@ -29,6 +29,8 @@ public sealed class ClientGalleryUserCreationServiceTests
     public async Task CreateUserGalleryAsync_CreatesSevenDayPrivatePrintUpload()
     {
         await using var fixture = await GallerySqliteFixture.CreateAsync();
+        fixture.Context.Users.Add(TestUsers.Create("user@test.bg", "user-1"));
+        await fixture.Context.SaveChangesAsync();
         var service = Create(fixture.Context);
         var before = DateTime.UtcNow;
 
