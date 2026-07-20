@@ -78,6 +78,14 @@ internal sealed class TestUserManager : UserManager<ApplicationUser>
         return Task.FromResult(_user != null && _user.Id == userId ? _user : null);
     }
 
+    public override Task<ApplicationUser?> FindByEmailAsync(string email)
+    {
+        return Task.FromResult(
+            _user != null && string.Equals(_user.Email, email, StringComparison.OrdinalIgnoreCase)
+                ? _user
+                : null);
+    }
+
     public override Task<IList<string>> GetRolesAsync(ApplicationUser user)
     {
         return Task.FromResult<IList<string>>(_roles.ToList());
@@ -121,7 +129,7 @@ internal sealed class TestUserStore : IUserStore<ApplicationUser>
     public Task<string?> GetNormalizedUserNameAsync(ApplicationUser user, CancellationToken cancellationToken) => throw new NotSupportedException();
     public Task<string> GetUserIdAsync(ApplicationUser user, CancellationToken cancellationToken) => Task.FromResult(user.Id);
     public Task<string?> GetUserNameAsync(ApplicationUser user, CancellationToken cancellationToken) => Task.FromResult(user.UserName);
-    public Task SetNormalizedUserNameAsync(ApplicationUser user, string? normalizedName, CancellationToken cancellationToken) => throw new NotSupportedException();
+    public Task SetNormalizedUserNameAsync(ApplicationUser user, string? userName, CancellationToken cancellationToken) => throw new NotSupportedException();
     public Task SetUserNameAsync(ApplicationUser user, string? userName, CancellationToken cancellationToken) => throw new NotSupportedException();
     public Task<IdentityResult> UpdateAsync(ApplicationUser user, CancellationToken cancellationToken) => throw new NotSupportedException();
 }
