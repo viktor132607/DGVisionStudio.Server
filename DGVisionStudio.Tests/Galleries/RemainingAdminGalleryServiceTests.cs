@@ -15,12 +15,15 @@ public sealed class AdminClientGalleryQueryServiceTests
     [Fact]
     public async Task QueryMethods_ValidateIdsAndReturnGalleryCollection()
     {
+        await using var context = TestDbContextFactory.CreateContext();
         var galleryService = new StubClientGalleryService
         {
             GetAllGalleries = () => Task.FromResult<List<MyClientGalleryDto>>([])
         };
         var user = TestUsers.Create("client@example.com", "user-1");
-        var manager = new ConfigurableUserManager([user]);
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
+        var manager = new ConfigurableUserManager([user]) { UsersSource = context.Users };
         var service = new AdminClientGalleryQueryService(galleryService, manager);
 
         var all = await service.GetAllGalleriesAsync();
