@@ -46,7 +46,8 @@ public sealed class AdminAuditLogQueryServiceTests
             action: " update ");
 
         result.StatusCode.Should().Be(StatusCodes.Status200OK);
-        var value = result.Value.Should().NotBeNull().Subject;
+        var value = result.Value;
+        value.Should().NotBeNull();
         value!.GetType().GetProperty("page")!.GetValue(value).Should().Be(1);
         value.GetType().GetProperty("pageSize")!.GetValue(value).Should().Be(50);
         value.GetType().GetProperty("total")!.GetValue(value).Should().Be(1);
