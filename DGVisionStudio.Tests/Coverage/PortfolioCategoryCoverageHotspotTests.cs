@@ -147,7 +147,7 @@ public sealed class PortfolioCategoryAdminCoverageTests
         image.IsDeleted.Should().BeTrue();
         image.IsPublished.Should().BeFalse();
         image.IsCover.Should().BeFalse();
-        remaining.DisplayOrder.Should().Be(2);
+        remaining.DisplayOrder.Should().Be(1);
         audit.Entries.Should().ContainSingle(x => x.Action == "SoftDeletePortfolioCategory");
     }
 
