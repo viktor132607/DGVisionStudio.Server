@@ -24,13 +24,28 @@ jobs:
         run: dotnet restore
 
       - name: Build
+        id: build
         shell: bash
         run: |
           set +e
-          output=$(dotnet build --no-restore --configuration Release 2>&1)
+          dotnet build --no-restore --configuration Release > build.log 2>&1
           status=$?
-          printf '%s\n' "$output" | tail -80
-          exit $status
+          tail -100 build.log > build-tail.txt
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          cat build-tail.txt
+          exit 0
+
+      - name: Upload build diagnostics
+        if: steps.build.outputs.status != '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-diagnostics
+          path: build-tail.txt
+
+      - name: Fail failed build
+        if: steps.build.outputs.status != '0'
+        run: exit 1
 
       - name: Test
+        if: steps.build.outputs.status == '0'
         run: dotnet test --no-build --configuration Release --verbosity normal
