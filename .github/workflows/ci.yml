@@ -24,7 +24,13 @@ jobs:
         run: dotnet restore
 
       - name: Build
-        run: dotnet build --no-restore --configuration Release
+        shell: bash
+        run: |
+          set +e
+          output=$(dotnet build --no-restore --configuration Release 2>&1)
+          status=$?
+          printf '%s\n' "$output" | tail -80
+          exit $status
 
       - name: Test
         run: dotnet test --no-build --configuration Release --verbosity normal
