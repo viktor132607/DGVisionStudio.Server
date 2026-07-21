@@ -230,7 +230,7 @@ public class CloudinaryFileStorageService : IFileStorageService
 					context.Resize(new ResizeOptions
 					{
 						Mode = ResizeMode.Max,
-						Size = new Size(targetWidth, 0)
+						Size = new SixLabors.ImageSharp.Size(targetWidth, 0)
 					});
 				}
 			});
