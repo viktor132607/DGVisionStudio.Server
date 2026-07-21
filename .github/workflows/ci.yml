@@ -47,5 +47,25 @@ jobs:
         run: exit 1
 
       - name: Test
+        id: test
         if: steps.build.outputs.status == '0'
-        run: dotnet test --no-build --configuration Release --verbosity normal
+        shell: bash
+        run: |
+          set +e
+          dotnet test --no-build --configuration Release --verbosity normal > test.log 2>&1
+          status=$?
+          tail -120 test.log > test-tail.txt
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          cat test-tail.txt
+          exit 0
+
+      - name: Upload test diagnostics
+        if: steps.test.outputs.status != '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-diagnostics
+          path: test-tail.txt
+
+      - name: Fail failed tests
+        if: steps.test.outputs.status != '0'
+        run: exit 1
