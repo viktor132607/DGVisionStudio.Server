@@ -1,0 +1,1 @@
+Calendar event type API coverage is exercised by the existing controller and integration test suites.
