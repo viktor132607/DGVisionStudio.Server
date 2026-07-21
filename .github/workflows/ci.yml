@@ -52,7 +52,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          dotnet test --no-build --configuration Release --verbosity normal > test.log 2>&1
+          dotnet test --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=results.trx" > test.log 2>&1
           status=$?
           tail -120 test.log > test-tail.txt
           echo "status=$status" >> "$GITHUB_OUTPUT"
@@ -64,7 +64,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-diagnostics
-          path: test-tail.txt
+          path: |
+            test-tail.txt
+            DGVisionStudio.Tests/TestResults/results.trx
 
       - name: Fail failed tests
         if: steps.test.outputs.status != '0'
