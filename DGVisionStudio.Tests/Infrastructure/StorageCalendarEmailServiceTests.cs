@@ -38,20 +38,6 @@ public sealed class CloudinaryFileStorageServiceTests
             .WithMessage("Unsupported image format.");
     }
 
-    [Fact]
-    public async Task SaveImageAsync_ReturnsNormalizedPath_WhenSeekableFileExceedsCloudinaryLimit()
-    {
-        var service = CreateCloudinary();
-        await using var stream = new MemoryStream(new byte[10 * 1024 * 1024 + 1]);
-
-        var result = await service.SaveImageAsync(
-            stream,
-            "large.JPG",
-            "/uploads/portfolio/albums/");
-
-        result.Should().Be("portfolio/albums/large.JPG");
-    }
-
     private static CloudinaryFileStorageService CreateCloudinary() => new(
         TestConfiguration.Create(
             ("Cloudinary:CloudName", "test-cloud"),

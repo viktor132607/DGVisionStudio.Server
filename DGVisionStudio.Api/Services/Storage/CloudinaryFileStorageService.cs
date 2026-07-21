@@ -2,12 +2,18 @@
 using CloudinaryDotNet.Actions;
 using DGVisionStudio.Application.Interfaces;
 using Microsoft.Extensions.Configuration;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Webp;
+using SixLabors.ImageSharp.Processing;
+using ImageSharpImage = SixLabors.ImageSharp.Image;
 
 namespace DGVisionStudio.Infrastructure.Services;
 
 public class CloudinaryFileStorageService : IFileStorageService
 {
 	private const long CloudinaryMaxImageUploadSizeBytes = 10 * 1024 * 1024;
+	private const long CloudinaryUploadTargetSizeBytes = 9 * 1024 * 1024;
+	private const int MinimumOptimizedWidth = 960;
 	private static readonly HttpClient HttpClient = new();
 
 	private readonly Cloudinary _cloudinary;
@@ -65,33 +71,69 @@ public class CloudinaryFileStorageService : IFileStorageService
 		if (extension is not ".jpg" and not ".jpeg" and not ".png" and not ".webp")
 			throw new InvalidOperationException("Unsupported image format.");
 
-		if (fileStream.CanSeek && fileStream.Length > CloudinaryMaxImageUploadSizeBytes)
-			return BuildSkippedCloudinaryPath(folderPath, fileName);
+		MemoryStream? bufferedStream = null;
+		MemoryStream? optimizedStream = null;
+		Stream uploadStream = fileStream;
+		var uploadFileName = fileName;
 
-		var publicId = BuildPublicId(folderPath, Path.GetFileNameWithoutExtension(fileName));
-
-		var uploadParams = new ImageUploadParams
+		try
 		{
-			File = new FileDescription(fileName, fileStream),
-			PublicId = publicId,
-			Overwrite = false,
-			UseFilename = false,
-			UniqueFilename = true,
-			Transformation = new Transformation()
-				.Width(maxWidth)
-				.Crop("limit")
-				.Quality(quality)
-		};
+			if (!uploadStream.CanSeek)
+			{
+				bufferedStream = new MemoryStream();
+				await uploadStream.CopyToAsync(bufferedStream, cancellationToken);
+				bufferedStream.Position = 0;
+				uploadStream = bufferedStream;
+			}
+			else
+			{
+				uploadStream.Position = 0;
+			}
 
-		var result = await _cloudinary.UploadAsync(uploadParams);
+			if (uploadStream.Length > CloudinaryMaxImageUploadSizeBytes)
+			{
+				optimizedStream = await OptimizeImageForCloudinaryAsync(
+					uploadStream,
+					maxWidth,
+					quality,
+					cancellationToken);
+				uploadStream = optimizedStream;
+				uploadFileName = Path.ChangeExtension(fileName, ".webp");
+			}
 
-		if (result.Error != null)
-			throw new InvalidOperationException($"Cloudinary upload failed. Error: {result.Error.Message}");
+			var publicId = BuildPublicId(folderPath, Path.GetFileNameWithoutExtension(fileName));
 
-		if (string.IsNullOrWhiteSpace(result.SecureUrl?.ToString()))
-			throw new InvalidOperationException("Cloudinary upload failed. SecureUrl is empty.");
+			var uploadParams = new ImageUploadParams
+			{
+				File = new FileDescription(uploadFileName, uploadStream),
+				PublicId = publicId,
+				Overwrite = false,
+				UseFilename = false,
+				UniqueFilename = true,
+				Transformation = new Transformation()
+					.Width(maxWidth)
+					.Crop("limit")
+					.Quality(quality)
+			};
 
-		return result.SecureUrl.ToString();
+			var result = await _cloudinary.UploadAsync(uploadParams);
+
+			if (result.Error != null)
+				throw new InvalidOperationException($"Cloudinary upload failed. Error: {result.Error.Message}");
+
+			if (string.IsNullOrWhiteSpace(result.SecureUrl?.ToString()))
+				throw new InvalidOperationException("Cloudinary upload failed. SecureUrl is empty.");
+
+			return result.SecureUrl.ToString();
+		}
+		finally
+		{
+			if (optimizedStream != null)
+				await optimizedStream.DisposeAsync();
+
+			if (bufferedStream != null)
+				await bufferedStream.DisposeAsync();
+		}
 	}
 
 	public async Task DeleteFileAsync(
@@ -160,6 +202,72 @@ public class CloudinaryFileStorageService : IFileStorageService
 		}
 	}
 
+	private static async Task<MemoryStream> OptimizeImageForCloudinaryAsync(
+		Stream fileStream,
+		int maxWidth,
+		int quality,
+		CancellationToken cancellationToken)
+	{
+		if (fileStream.CanSeek)
+			fileStream.Position = 0;
+
+		using var image = await ImageSharpImage.LoadAsync(fileStream, cancellationToken);
+		image.Mutate(x => x.AutoOrient());
+		image.Metadata.ExifProfile = null;
+		image.Metadata.IccProfile = null;
+		image.Metadata.IptcProfile = null;
+		image.Metadata.XmpProfile = null;
+
+		var targetWidth = Math.Min(image.Width, maxWidth > 0 ? maxWidth : 2400);
+		var targetQuality = Math.Clamp(quality, 45, 90);
+
+		for (var attempt = 0; attempt < 12; attempt++)
+		{
+			using var candidate = image.Clone(context =>
+			{
+				if (targetWidth > 0 && image.Width > targetWidth)
+				{
+					context.Resize(new ResizeOptions
+					{
+						Mode = ResizeMode.Max,
+						Size = new SixLabors.ImageSharp.Size(targetWidth, 0)
+					});
+				}
+			});
+
+			var output = new MemoryStream();
+			await candidate.SaveAsWebpAsync(output, new WebpEncoder
+			{
+				Quality = targetQuality
+			}, cancellationToken);
+
+			if (output.Length <= CloudinaryUploadTargetSizeBytes)
+			{
+				output.Position = 0;
+				return output;
+			}
+
+			await output.DisposeAsync();
+
+			if (targetQuality > 55)
+			{
+				targetQuality -= 10;
+				continue;
+			}
+
+			if (targetWidth > MinimumOptimizedWidth)
+			{
+				targetWidth = Math.Max(MinimumOptimizedWidth, (int)Math.Round(targetWidth * 0.8));
+				continue;
+			}
+
+			break;
+		}
+
+		throw new InvalidOperationException(
+			"The image could not be optimized below the Cloudinary upload limit.");
+	}
+
 	private string BuildPublicId(string folderPath, string fileNameWithoutExtension)
 	{
 		var safeFolder = NormalizeCloudinaryFolder(folderPath);
@@ -172,18 +280,6 @@ public class CloudinaryFileStorageService : IFileStorageService
 		return string.IsNullOrWhiteSpace(safeFolder)
 			? $"{_folder}/{uniqueName}"
 			: $"{_folder}/{safeFolder}/{uniqueName}";
-	}
-
-	private static string BuildSkippedCloudinaryPath(string folderPath, string fileName)
-	{
-		var safeFolder = NormalizeCloudinaryFolder(folderPath);
-		var safeFileName = string.IsNullOrWhiteSpace(fileName)
-			? $"{Guid.NewGuid():N}.jpg"
-			: Path.GetFileName(fileName);
-
-		return string.IsNullOrWhiteSpace(safeFolder)
-			? safeFileName
-			: $"{safeFolder}/{safeFileName}";
 	}
 
 	private static string NormalizeCloudinaryFolder(string? value)

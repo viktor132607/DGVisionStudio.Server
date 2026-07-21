@@ -2,6 +2,8 @@ using System.Reflection;
 using DGVisionStudio.Infrastructure.Services;
 using DGVisionStudio.Tests.TestSupport;
 using FluentAssertions;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace DGVisionStudio.Tests.Coverage;
 
@@ -78,17 +80,26 @@ public sealed class CloudinaryFileStorageCoverageTests
     }
 
     [Fact]
-    public async Task OversizedUpload_NormalizesAbsoluteFolderWithoutCallingCloudinary()
+    public async Task OversizedImageOptimization_ProducesUploadableWebp()
     {
-        var service = CreateService();
-        await using var stream = new MemoryStream(new byte[10 * 1024 * 1024 + 1]);
+        using var image = new Image<Rgba32>(3000, 2000, new Rgba32(20, 40, 60));
+        await using var source = new MemoryStream();
+        await image.SaveAsPngAsync(source);
+        source.Position = 0;
 
-        var path = await service.SaveImageAsync(
-            stream,
-            "Photo.JPG",
-            "https://example.com/uploads/portfolio/client/");
+        var method = typeof(CloudinaryFileStorageService).GetMethod(
+            "OptimizeImageForCloudinaryAsync",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var task = (Task<MemoryStream>)method.Invoke(
+            null,
+            [source, 1200, 82, CancellationToken.None])!;
 
-        path.Should().Be("portfolio/client/Photo.JPG");
+        await using var optimizedStream = await task;
+        optimizedStream.Length.Should().BeLessThanOrEqualTo(9 * 1024 * 1024);
+        optimizedStream.Position = 0;
+
+        using var optimizedImage = await Image.LoadAsync(optimizedStream);
+        optimizedImage.Width.Should().BeLessThanOrEqualTo(1200);
     }
 
     private static CloudinaryFileStorageService CreateService() => new(
