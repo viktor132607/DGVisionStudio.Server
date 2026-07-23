@@ -18,12 +18,9 @@ namespace DGVisionStudio.Infrastructure.Controllers;
 public class AdminCalendarController : ControllerBase
 {
     private const string EventTypesSettingKey = "CalendarEventTypes";
+    private const string EventPricesSettingKey = "CalendarEventPrices";
+    private const string DefaultEventColor = "#64748b";
     private static readonly Regex HexColorPattern = new("^#[0-9a-fA-F]{6}$", RegexOptions.Compiled);
-    private static readonly CalendarEventTypeDto[] DefaultEventTypes =
-    [
-        new() { Code = "Photoshoot", Name = "Фотосесия", Color = "#2563eb", IsSystem = true },
-        new() { Code = "Print", Name = "Принт на снимки", Color = "#f97316", IsSystem = true }
-    ];
 
     private readonly IAdminCalendarService _service;
     private readonly AppDbContext? _context;
@@ -46,8 +43,19 @@ public class AdminCalendarController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll() =>
-        this.ToActionResult(await _service.GetAllAsync());
+    public async Task<IActionResult> GetAll()
+    {
+        var result = await _service.GetAllAsync();
+
+        if (result.StatusCode == StatusCodes.Status200OK &&
+            result.Value is IEnumerable<CalendarEvent> items)
+        {
+            var prices = await LoadEventPricesAsync();
+            return Ok(items.Select(item => ToResponse(item, GetPrice(prices, item.Id))));
+        }
+
+        return this.ToActionResult(result);
+    }
 
     [HttpGet("contact-requests")]
     public async Task<IActionResult> GetContactRequestsForImport() =>
@@ -106,7 +114,7 @@ public class AdminCalendarController : ControllerBase
             return NotFound();
 
         var current = eventTypes[index];
-        var nextCode = current.IsSystem ? current.Code : request.Name.Trim();
+        var nextCode = request.Name.Trim();
 
         if (eventTypes
             .Where((_, itemIndex) => itemIndex != index)
@@ -116,13 +124,14 @@ public class AdminCalendarController : ControllerBase
         }
 
         var nextColor = request.Color.Trim().ToLowerInvariant();
-        eventTypes[index] = new CalendarEventTypeDto
+        var updated = new CalendarEventTypeDto
         {
             Code = nextCode,
-            Name = current.IsSystem ? current.Name : nextCode,
+            Name = nextCode,
             Color = nextColor,
-            IsSystem = current.IsSystem
+            IsSystem = false
         };
+        eventTypes[index] = updated;
 
         var matchingEvents = await context.CalendarEvents
             .Where(x => x.EventType == current.Code)
@@ -136,7 +145,7 @@ public class AdminCalendarController : ControllerBase
         }
 
         await SaveEventTypesAsync(eventTypes);
-        return Ok(eventTypes[index]);
+        return Ok(updated);
     }
 
     [HttpDelete("event-types/{code}")]
@@ -149,45 +158,91 @@ public class AdminCalendarController : ControllerBase
         if (eventType == null)
             return NotFound();
 
-        if (eventType.IsSystem)
-            return BadRequest(new { message = "Основните типове не могат да бъдат изтрити." });
+        eventTypes.Remove(eventType);
+        var replacement = eventTypes.FirstOrDefault();
 
-        if (await context.CalendarEvents.AnyAsync(x => x.EventType == eventType.Code))
+        var matchingEvents = await context.CalendarEvents
+            .Where(x => x.EventType == eventType.Code)
+            .ToListAsync();
+
+        foreach (var calendarEvent in matchingEvents)
         {
-            return BadRequest(new
-            {
-                message = "Типът се използва от събития в календара. Промени типа на тези събития преди изтриване."
-            });
+            calendarEvent.EventType = replacement?.Code;
+            calendarEvent.Color = replacement?.Color;
+            calendarEvent.UpdatedAtUtc = DateTime.UtcNow;
         }
 
-        eventTypes.Remove(eventType);
         await SaveEventTypesAsync(eventTypes);
         return NoContent();
     }
 
     [HttpGet("{id:int}")]
-    public async Task<IActionResult> Get(int id) =>
-        this.ToActionResult(await _service.GetAsync(id));
+    public async Task<IActionResult> Get(int id)
+    {
+        var result = await _service.GetAsync(id);
+
+        if (result.StatusCode == StatusCodes.Status200OK && result.Value is CalendarEvent item)
+        {
+            var prices = await LoadEventPricesAsync();
+            return Ok(ToResponse(item, GetPrice(prices, item.Id)));
+        }
+
+        return this.ToActionResult(result);
+    }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CalendarEventDto dto)
     {
+        if (dto.Price is < 0)
+            return BadRequest(new { message = "Цената не може да бъде отрицателна." });
+
         var result = await _service.CreateAsync(dto);
-        return result.StatusCode == StatusCodes.Status201Created && result.Value is CalendarEvent item
-            ? CreatedAtAction(nameof(Get), new { id = item.Id }, item)
-            : this.ToActionResult(result);
+
+        if (result.StatusCode == StatusCodes.Status201Created && result.Value is CalendarEvent item)
+        {
+            await SetEventPriceAsync(item.Id, dto.Price);
+            return CreatedAtAction(nameof(Get), new { id = item.Id }, ToResponse(item, dto.Price));
+        }
+
+        return this.ToActionResult(result);
     }
 
     [HttpPut("{id:int}")]
-    public async Task<IActionResult> Update(int id, [FromBody] CalendarEventDto dto) =>
-        this.ToActionResult(await _service.UpdateAsync(id, dto));
+    public async Task<IActionResult> Update(int id, [FromBody] CalendarEventDto dto)
+    {
+        if (dto.Price is < 0)
+            return BadRequest(new { message = "Цената не може да бъде отрицателна." });
+
+        var result = await _service.UpdateAsync(id, dto);
+
+        if (result.StatusCode >= StatusCodes.Status200OK &&
+            result.StatusCode < StatusCodes.Status300MultipleChoices)
+        {
+            await SetEventPriceAsync(id, dto.Price);
+
+            if (result.Value is CalendarEvent item)
+                return Ok(ToResponse(item, dto.Price));
+        }
+
+        return this.ToActionResult(result);
+    }
 
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Delete(int id) =>
-        this.ToActionResult(await _service.DeleteAsync(id));
+    public async Task<IActionResult> Delete(int id)
+    {
+        var result = await _service.DeleteAsync(id);
+
+        if (result.StatusCode >= StatusCodes.Status200OK &&
+            result.StatusCode < StatusCodes.Status300MultipleChoices)
+        {
+            await RemoveEventPriceAsync(id);
+        }
+
+        return this.ToActionResult(result);
+    }
 
     private AppDbContext RequireContext() =>
-        _context ?? throw new InvalidOperationException("Calendar event type storage is unavailable.");
+        _context ?? throw new InvalidOperationException("Calendar settings storage is unavailable.");
 
     private async Task<List<CalendarEventTypeDto>> LoadEventTypesAsync()
     {
@@ -218,31 +273,65 @@ public class AdminCalendarController : ControllerBase
                 Code = x.Code.Trim(),
                 Name = x.Name.Trim(),
                 Color = x.Color.Trim().ToLowerInvariant(),
-                IsSystem = DefaultEventTypes.Any(defaultType =>
-                    defaultType.Code.Equals(x.Code, StringComparison.OrdinalIgnoreCase))
+                IsSystem = false
             })
+            .OrderBy(x => x.Name)
             .ToList();
 
-        foreach (var defaultType in DefaultEventTypes)
-        {
-            if (result.All(x => !x.Code.Equals(defaultType.Code, StringComparison.OrdinalIgnoreCase)))
+        if (result.Count > 0)
+            return result;
+
+        var existingEventTypes = await context.CalendarEvents
+            .AsNoTracking()
+            .Where(x => x.EventType != null && x.EventType != string.Empty)
+            .Select(x => new { x.EventType, x.Color })
+            .ToListAsync();
+
+        result = existingEventTypes
+            .GroupBy(x => x.EventType!, StringComparer.OrdinalIgnoreCase)
+            .Select(group =>
             {
-                result.Insert(0, CloneEventType(defaultType));
-            }
-        }
+                var color = group
+                    .Select(x => x.Color?.Trim())
+                    .FirstOrDefault(x => HexColorPattern.IsMatch(x ?? string.Empty))
+                    ?.ToLowerInvariant() ?? DefaultEventColor;
 
-        return result
-            .OrderByDescending(x => x.IsSystem)
-            .ThenBy(x => x.IsSystem ? Array.FindIndex(DefaultEventTypes, d => d.Code == x.Code) : int.MaxValue)
-            .ThenBy(x => x.Name)
+                var name = group.Key.Trim();
+                return new CalendarEventTypeDto
+                {
+                    Code = name,
+                    Name = name,
+                    Color = color,
+                    IsSystem = false
+                };
+            })
+            .OrderBy(x => x.Name)
             .ToList();
+
+        if (result.Count > 0)
+            await SaveEventTypesAsync(result);
+
+        return result;
     }
 
     private async Task SaveEventTypesAsync(List<CalendarEventTypeDto> eventTypes)
     {
         var context = RequireContext();
+        var normalizedTypes = eventTypes
+            .Where(IsValidStoredType)
+            .GroupBy(x => x.Code, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .Select(x => new CalendarEventTypeDto
+            {
+                Code = x.Code.Trim(),
+                Name = x.Name.Trim(),
+                Color = x.Color.Trim().ToLowerInvariant(),
+                IsSystem = false
+            })
+            .OrderBy(x => x.Name)
+            .ToList();
         var setting = await context.SiteSettings.FirstOrDefaultAsync(x => x.Key == EventTypesSettingKey);
-        var json = JsonSerializer.Serialize(eventTypes);
+        var json = JsonSerializer.Serialize(normalizedTypes);
 
         if (setting == null)
         {
@@ -250,7 +339,7 @@ public class AdminCalendarController : ControllerBase
             {
                 Key = EventTypesSettingKey,
                 Value = json,
-                Description = "Calendar event types and their display colors.",
+                Description = "Editable calendar event types and their display colors.",
                 UpdatedAtUtc = DateTime.UtcNow
             });
         }
@@ -262,6 +351,109 @@ public class AdminCalendarController : ControllerBase
 
         await context.SaveChangesAsync();
     }
+
+    private async Task<Dictionary<int, decimal>> LoadEventPricesAsync()
+    {
+        if (_context == null)
+            return [];
+
+        var setting = await _context.SiteSettings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Key == EventPricesSettingKey);
+
+        try
+        {
+            return setting == null
+                ? []
+                : (JsonSerializer.Deserialize<Dictionary<int, decimal>>(setting.Value) ?? [])
+                    .Where(x => x.Value >= 0)
+                    .ToDictionary(x => x.Key, x => x.Value);
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
+    private async Task SaveEventPricesAsync(Dictionary<int, decimal> prices)
+    {
+        if (_context == null)
+            return;
+
+        var setting = await _context.SiteSettings.FirstOrDefaultAsync(x => x.Key == EventPricesSettingKey);
+        var json = JsonSerializer.Serialize(prices);
+
+        if (setting == null)
+        {
+            _context.SiteSettings.Add(new SiteSetting
+            {
+                Key = EventPricesSettingKey,
+                Value = json,
+                Description = "Prices assigned to calendar events, indexed by event id.",
+                UpdatedAtUtc = DateTime.UtcNow
+            });
+        }
+        else
+        {
+            setting.Value = json;
+            setting.UpdatedAtUtc = DateTime.UtcNow;
+        }
+
+        await _context.SaveChangesAsync();
+    }
+
+    private async Task SetEventPriceAsync(int eventId, decimal? price)
+    {
+        if (_context == null)
+            return;
+
+        var prices = await LoadEventPricesAsync();
+
+        if (price.HasValue)
+            prices[eventId] = price.Value;
+        else
+            prices.Remove(eventId);
+
+        await SaveEventPricesAsync(prices);
+    }
+
+    private async Task RemoveEventPriceAsync(int eventId)
+    {
+        if (_context == null)
+            return;
+
+        var prices = await LoadEventPricesAsync();
+        if (!prices.Remove(eventId))
+            return;
+
+        await SaveEventPricesAsync(prices);
+    }
+
+    private static decimal? GetPrice(IReadOnlyDictionary<int, decimal> prices, int eventId) =>
+        prices.TryGetValue(eventId, out var price) ? price : null;
+
+    private static CalendarEventResponseDto ToResponse(CalendarEvent item, decimal? price) => new()
+    {
+        Id = item.Id,
+        Title = item.Title,
+        EventType = item.EventType,
+        AssignedTo = item.AssignedTo,
+        ClientName = item.ClientName,
+        ClientPhone = item.ClientPhone,
+        ClientEmail = item.ClientEmail,
+        ContactRequestId = item.ContactRequestId,
+        Location = item.Location,
+        Description = item.Description,
+        Color = item.Color,
+        Price = price,
+        RemindersEnabled = item.RemindersEnabled,
+        Reminder24hSentAtUtc = item.Reminder24hSentAtUtc,
+        Reminder2hSentAtUtc = item.Reminder2hSentAtUtc,
+        StartAtUtc = item.StartAtUtc,
+        EndAtUtc = item.EndAtUtc,
+        CreatedAtUtc = item.CreatedAtUtc,
+        UpdatedAtUtc = item.UpdatedAtUtc
+    };
 
     private static bool IsValidStoredType(CalendarEventTypeDto eventType) =>
         !string.IsNullOrWhiteSpace(eventType.Code) &&
@@ -283,14 +475,6 @@ public class AdminCalendarController : ControllerBase
 
         return null;
     }
-
-    private static CalendarEventTypeDto CloneEventType(CalendarEventTypeDto source) => new()
-    {
-        Code = source.Code,
-        Name = source.Name,
-        Color = source.Color,
-        IsSystem = source.IsSystem
-    };
 }
 
 public class CalendarEventDto
@@ -305,21 +489,45 @@ public class CalendarEventDto
     public string? Location { get; set; }
     public string? Description { get; set; }
     public string? Color { get; set; }
+    public decimal? Price { get; set; }
     public bool RemindersEnabled { get; set; } = true;
     public DateTime StartAtUtc { get; set; }
     public DateTime EndAtUtc { get; set; }
 }
 
+public class CalendarEventResponseDto
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string? EventType { get; set; }
+    public string? AssignedTo { get; set; }
+    public string? ClientName { get; set; }
+    public string? ClientPhone { get; set; }
+    public string? ClientEmail { get; set; }
+    public Guid? ContactRequestId { get; set; }
+    public string? Location { get; set; }
+    public string? Description { get; set; }
+    public string? Color { get; set; }
+    public decimal? Price { get; set; }
+    public bool RemindersEnabled { get; set; }
+    public DateTime? Reminder24hSentAtUtc { get; set; }
+    public DateTime? Reminder2hSentAtUtc { get; set; }
+    public DateTime StartAtUtc { get; set; }
+    public DateTime EndAtUtc { get; set; }
+    public DateTime CreatedAtUtc { get; set; }
+    public DateTime? UpdatedAtUtc { get; set; }
+}
+
 public class CalendarEventTypeRequest
 {
     public string Name { get; set; } = string.Empty;
-    public string Color { get; set; } = "#2563eb";
+    public string Color { get; set; } = "#64748b";
 }
 
 public class CalendarEventTypeDto
 {
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
-    public string Color { get; set; } = "#2563eb";
+    public string Color { get; set; } = "#64748b";
     public bool IsSystem { get; set; }
 }
