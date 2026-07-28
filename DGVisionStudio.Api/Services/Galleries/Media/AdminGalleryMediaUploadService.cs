@@ -17,7 +17,6 @@ public sealed class AdminGalleryMediaUploadService(
     ClientGalleryMapper mapper)
 {
     private const long MaxPhotoUploadSizeBytes = 20 * 1024 * 1024;
-    private const long MaxVideoUploadSizeBytes = 100 * 1024 * 1024;
 
     public async Task<ControllerServiceResult> UploadPhotoAsync(
         int galleryId,
@@ -74,13 +73,18 @@ public sealed class AdminGalleryMediaUploadService(
             return ControllerServiceResult.BadRequest(new { message = "Invalid gallery id." });
         if (file is null || file.Length == 0)
             return ControllerServiceResult.BadRequest(new { message = "File is required." });
-        if (file.Length > MaxVideoUploadSizeBytes)
-            return ControllerServiceResult.BadRequest(new { message = "Video is too large. Maximum size is 100MB." });
-        if (!IsAllowedVideo(file))
+        if (file.Length > VideoUploadValidation.MaxFileSizeBytes)
         {
             return ControllerServiceResult.BadRequest(new
             {
-                message = "Only video files are allowed: mp4, mov, webm, m4v."
+                message = $"Video is too large. Maximum size is {VideoUploadValidation.MaxFileSizeLabel}."
+            });
+        }
+        if (!await VideoUploadValidation.IsAllowedAsync(file))
+        {
+            return ControllerServiceResult.BadRequest(new
+            {
+                message = "Only valid video files are allowed: mp4, mov, webm, m4v."
             });
         }
 
@@ -153,21 +157,6 @@ public sealed class AdminGalleryMediaUploadService(
             context);
 
         return ControllerServiceResult.Ok(mapper.MapPhotoDto(video, true, galleryId));
-    }
-
-    private static bool IsAllowedVideo(IFormFile file)
-    {
-        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-        var allowedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ".mp4",
-            ".mov",
-            ".webm",
-            ".m4v"
-        };
-
-        return allowedExtensions.Contains(extension) &&
-            file.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase);
     }
 
     private string GetVideoUploadFolder()
