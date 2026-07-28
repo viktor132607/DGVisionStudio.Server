@@ -13,12 +13,6 @@ public static class PortfolioMediaNameSetup
 		await db.Database.ExecuteSqlRawAsync("""
 			ALTER TABLE "PortfolioImages"
 			ADD COLUMN IF NOT EXISTS "Name" character varying(250) NULL;
-
-			ALTER TABLE "PortfolioAlbums"
-			ADD COLUMN IF NOT EXISTS "PublishAtUtc" timestamp with time zone NULL;
-
-			CREATE INDEX IF NOT EXISTS "IX_PortfolioAlbums_PublishAtUtc"
-			ON "PortfolioAlbums" ("PublishAtUtc");
 			""");
 
 		await db.Database.ExecuteSqlRawAsync("""

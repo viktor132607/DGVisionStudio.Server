@@ -17,7 +17,6 @@ public class PortfolioAlbum
 	public bool IsPublished { get; set; } = true;
 	public bool AllowClientAccess { get; set; } = true;
 	public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
-	public DateTime? PublishAtUtc { get; set; }
 
 	public GalleryType GalleryType { get; set; } = GalleryType.Photoshoot;
 	public bool IsUserUploaded { get; set; }
