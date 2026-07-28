@@ -19,7 +19,6 @@ namespace DGVisionStudio.Infrastructure.Controllers;
 public class AdminClientGalleryPhotosController : ControllerBase
 {
     private const long MaxPhotoUploadRequestSizeBytes = 25 * 1024 * 1024;
-    private const long MaxVideoUploadRequestSizeBytes = 105 * 1024 * 1024;
 
     private readonly IAdminGalleryMediaManagementService _service;
 
@@ -66,8 +65,8 @@ public class AdminClientGalleryPhotosController : ControllerBase
             file,
             this.CreateAdminRequestContext()));
 
-    [RequestSizeLimit(MaxVideoUploadRequestSizeBytes)]
-    [RequestFormLimits(MultipartBodyLengthLimit = MaxVideoUploadRequestSizeBytes)]
+    [RequestSizeLimit(VideoUploadValidation.MaxRequestSizeBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = VideoUploadValidation.MaxRequestSizeBytes)]
     [HttpPost("videos/upload")]
     public async Task<IActionResult> UploadVideo(
         [FromRoute] int galleryId,
