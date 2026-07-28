@@ -22,12 +22,10 @@ public sealed class PortfolioQueryService : IPortfolioQueryService
 
     public async Task<ControllerServiceResult> GetAlbumsAsync(int? categoryId)
     {
-        var now = DateTime.UtcNow;
         var query = _context.PortfolioAlbums
             .Include(x => x.PortfolioCategory)
             .Where(x =>
                 x.IsPublished &&
-                (x.PublishAtUtc == null || x.PublishAtUtc <= now) &&
                 !x.IsUserUploaded &&
                 x.PortfolioCategory != null &&
                 x.PortfolioCategory.IsActive)
@@ -45,14 +43,12 @@ public sealed class PortfolioQueryService : IPortfolioQueryService
 
     public async Task<ControllerServiceResult> GetAlbumAsync(string slug)
     {
-        var now = DateTime.UtcNow;
         var album = await _context.PortfolioAlbums
             .Include(x => x.PortfolioCategory)
             .Include(x => x.Images.Where(i => i.IsPublished).OrderBy(i => i.DisplayOrder))
             .FirstOrDefaultAsync(x =>
                 x.Slug == slug &&
                 x.IsPublished &&
-                (x.PublishAtUtc == null || x.PublishAtUtc <= now) &&
                 !x.IsUserUploaded &&
                 x.PortfolioCategory != null &&
                 x.PortfolioCategory.IsActive);
@@ -64,7 +60,6 @@ public sealed class PortfolioQueryService : IPortfolioQueryService
 
     public async Task<ControllerServiceResult> GetImagesAsync(int? albumId)
     {
-        var now = DateTime.UtcNow;
         var query = _context.PortfolioImages
             .Include(x => x.PortfolioAlbum!)
             .ThenInclude(x => x.PortfolioCategory)
@@ -72,7 +67,6 @@ public sealed class PortfolioQueryService : IPortfolioQueryService
                 x.IsPublished &&
                 x.PortfolioAlbum != null &&
                 x.PortfolioAlbum.IsPublished &&
-                (x.PortfolioAlbum.PublishAtUtc == null || x.PortfolioAlbum.PublishAtUtc <= now) &&
                 !x.PortfolioAlbum.IsUserUploaded &&
                 x.PortfolioAlbum.PortfolioCategory != null &&
                 x.PortfolioAlbum.PortfolioCategory.IsActive)
