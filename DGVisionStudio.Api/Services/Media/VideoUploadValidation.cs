@@ -24,7 +24,10 @@ public static class VideoUploadValidation
         if (!AllowedExtensions.Contains(extension))
             return false;
 
-        if (!HasAcceptableDeclaredContentType(file.ContentType))
+        if (HasDeclaredVideoContentType(file.ContentType))
+            return true;
+
+        if (!HasMissingOrGenericContentType(file.ContentType))
             return false;
 
         var header = new byte[64];
@@ -43,15 +46,14 @@ public static class VideoUploadValidation
         return ContainsIsoBaseMediaFileTypeBox(header, bytesRead);
     }
 
-    private static bool HasAcceptableDeclaredContentType(string? contentType)
-    {
-        if (string.IsNullOrWhiteSpace(contentType))
-            return true;
+    private static bool HasDeclaredVideoContentType(string? contentType) =>
+        !string.IsNullOrWhiteSpace(contentType) &&
+        (contentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase) ||
+         contentType.Equals("application/quicktime", StringComparison.OrdinalIgnoreCase));
 
-        return contentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase) ||
-            contentType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase) ||
-            contentType.Equals("application/quicktime", StringComparison.OrdinalIgnoreCase);
-    }
+    private static bool HasMissingOrGenericContentType(string? contentType) =>
+        string.IsNullOrWhiteSpace(contentType) ||
+        contentType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase);
 
     private static bool ContainsIsoBaseMediaFileTypeBox(byte[] header, int bytesRead)
     {
