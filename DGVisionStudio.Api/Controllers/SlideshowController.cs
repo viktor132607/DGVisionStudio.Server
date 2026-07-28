@@ -33,8 +33,6 @@ public class PortfolioSlideshowController(IHomeSlideshowService slideshowService
 [Route("api/admin/slideshow")]
 public class AdminSlideshowController(IHomeSlideshowService slideshowService) : ControllerBase
 {
-	private const long MaxIntroVideoUploadRequestSizeBytes = 105 * 1024 * 1024;
-
 	[HttpGet]
 	public async Task<IActionResult> GetSlideshowManagement()
 	{
@@ -49,8 +47,8 @@ public class AdminSlideshowController(IHomeSlideshowService slideshowService) : 
 	}
 
 	[HttpPost("video")]
-	[RequestSizeLimit(MaxIntroVideoUploadRequestSizeBytes)]
-	[RequestFormLimits(MultipartBodyLengthLimit = MaxIntroVideoUploadRequestSizeBytes)]
+	[RequestSizeLimit(VideoUploadValidation.MaxRequestSizeBytes)]
+	[RequestFormLimits(MultipartBodyLengthLimit = VideoUploadValidation.MaxRequestSizeBytes)]
 	public async Task<IActionResult> UploadIntroVideo([FromForm] IFormFile file)
 	{
 		try
