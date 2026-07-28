@@ -12,6 +12,10 @@ public class CalendarReminderEmailService : BackgroundService
     private static readonly TimeSpan TwoHourReminderWindow = TimeSpan.FromHours(2);
     private static readonly TimeSpan TwentyFourHourReminderWindow = TimeSpan.FromHours(24);
 
+    private const string BrandName = "DG Vision Studio";
+    private const string WebsiteUrl = "https://dgvisionstudio.com";
+    private const string LogoUrl = WebsiteUrl + "/images/relogo/black.webp";
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<CalendarReminderEmailService> _logger;
 
@@ -151,7 +155,7 @@ public class CalendarReminderEmailService : BackgroundService
             var safeTitle = WebUtility.HtmlEncode(calendarEvent.Title);
             var safeLocation = WebUtility.HtmlEncode(calendarEvent.Location ?? "Търговски комплекс Ялта, Русе");
             var safePhone = WebUtility.HtmlEncode(calendarEvent.ClientPhone ?? string.Empty);
-            var safeAssignedTo = WebUtility.HtmlEncode(calendarEvent.AssignedTo ?? "DG Vision Studio");
+            var safeAssignedTo = WebUtility.HtmlEncode(calendarEvent.AssignedTo ?? BrandName);
             var safeNotes = WebUtility.HtmlEncode(calendarEvent.Description ?? string.Empty).Replace("\n", "<br />");
             var formattedDate = localStart.ToString("dd.MM.yyyy HH:mm");
 
@@ -166,7 +170,16 @@ public class CalendarReminderEmailService : BackgroundService
                     <p><strong>Екип:</strong> {safeAssignedTo}</p>
                     {(string.IsNullOrWhiteSpace(safePhone) ? string.Empty : $"<p><strong>Телефон:</strong> {safePhone}</p>")}
                     {(string.IsNullOrWhiteSpace(safeNotes) ? string.Empty : $"<p><strong>Бележки:</strong><br />{safeNotes}</p>")}
-                    <p style="margin-top:20px;">Поздрави,<br />DG Vision Studio</p>
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;">
+                        <tr>
+                            <td>
+                                <p style="margin:0 0 12px;">Поздрави,<br /><strong>{BrandName}</strong></p>
+                                <a href="{WebsiteUrl}" target="_blank" style="display:inline-block;text-decoration:none;">
+                                    <img src="{LogoUrl}" width="180" alt="{BrandName}" style="display:block;width:180px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;" />
+                                </a>
+                            </td>
+                        </tr>
+                    </table>
                 </div>
                 """;
 
