@@ -10,7 +10,6 @@ public sealed class HomeSlideshowVideoService(
     AppDbContext context,
     IWebHostEnvironment environment)
 {
-    private const long MaxIntroVideoUploadSizeBytes = 100 * 1024 * 1024;
     private const string IntroVideoSettingKey = "home-slideshow-intro-video-url";
 
     public async Task<SlideshowIntroVideoResponse> GetAsync() =>
@@ -32,11 +31,14 @@ public sealed class HomeSlideshowVideoService(
         if (file == null || file.Length == 0)
             throw new SlideshowValidationException("Избери видео файл.");
 
-        if (file.Length > MaxIntroVideoUploadSizeBytes)
-            throw new SlideshowValidationException("Видеото е твърде голямо. Максимумът е 100MB.");
+        if (file.Length > VideoUploadValidation.MaxFileSizeBytes)
+        {
+            throw new SlideshowValidationException(
+                $"Видеото е твърде голямо. Максимумът е {VideoUploadValidation.MaxFileSizeLabel}.");
+        }
 
-        if (!IsAllowedVideo(file))
-            throw new SlideshowValidationException("Позволени са само видео файлове: mp4, mov, webm, m4v.");
+        if (!await VideoUploadValidation.IsAllowedAsync(file))
+            throw new SlideshowValidationException("Позволени са само валидни видео файлове: mp4, mov, webm, m4v.");
 
         var webRoot = environment.WebRootPath;
         if (string.IsNullOrWhiteSpace(webRoot))
@@ -95,27 +97,5 @@ public sealed class HomeSlideshowVideoService(
         setting.Value = normalizedUrl;
         setting.Description = "Optional intro video shown once before the home page slideshow.";
         setting.UpdatedAtUtc = DateTime.UtcNow;
-    }
-
-    private static bool IsAllowedVideo(IFormFile file)
-    {
-        var allowedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ".mp4",
-            ".mov",
-            ".webm",
-            ".m4v"
-        };
-        var allowedContentTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "video/mp4",
-            "video/quicktime",
-            "video/webm",
-            "video/x-m4v"
-        };
-        var extension = Path.GetExtension(file.FileName);
-
-        return allowedExtensions.Contains(extension) ||
-            allowedContentTypes.Contains(file.ContentType ?? string.Empty);
     }
 }
