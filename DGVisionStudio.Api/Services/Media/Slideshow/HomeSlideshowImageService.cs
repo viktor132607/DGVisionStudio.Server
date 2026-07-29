@@ -36,7 +36,7 @@ public sealed class HomeSlideshowImageService(
 
     public async Task<AdminSlideshowResponse> GetManagementAsync()
     {
-        var availableImages = await ApplyDefaultOrder(GetAvailableImagesQuery().AsNoTracking())
+        var availableImages = await ApplyDefaultOrder(GetAvailableImagesQuery(includeScheduled: true).AsNoTracking())
             .ToListAsync();
         var settings = await settingsService.LoadAsync();
         var savedIds = HomeSlideshowSettingsService.NormalizeIds(settings.ImageIds);
@@ -81,7 +81,7 @@ public sealed class HomeSlideshowImageService(
     public async Task UpdateAsync(UpdateHomeSlideshowRequest request)
     {
         var requestedIds = HomeSlideshowSettingsService.NormalizeIds(request.ImageIds);
-        var availableIds = await GetAvailableImagesQuery()
+        var availableIds = await GetAvailableImagesQuery(includeScheduled: true)
             .AsNoTracking()
             .Where(x => requestedIds.Contains(x.Id))
             .Select(x => x.Id)
@@ -90,8 +90,9 @@ public sealed class HomeSlideshowImageService(
         await settingsService.UpdateAsync(request, availableIds);
     }
 
-    private IQueryable<PortfolioImage> GetAvailableImagesQuery() =>
-        context.PortfolioImages
+    private IQueryable<PortfolioImage> GetAvailableImagesQuery(bool includeScheduled = false)
+    {
+        var query = context.PortfolioImages
             .Include(x => x.PortfolioAlbum!)
             .ThenInclude(x => x.PortfolioCategory)
             .Where(x =>
@@ -101,6 +102,17 @@ public sealed class HomeSlideshowImageService(
                 !x.PortfolioAlbum.IsUserUploaded &&
                 x.PortfolioAlbum.PortfolioCategory != null &&
                 x.PortfolioAlbum.PortfolioCategory.IsActive);
+
+        if (!includeScheduled)
+        {
+            var now = DateTime.UtcNow;
+            query = query.Where(x =>
+                x.PortfolioAlbum!.PublishAtUtc == null ||
+                x.PortfolioAlbum.PublishAtUtc <= now);
+        }
+
+        return query;
+    }
 
     private static IQueryable<PortfolioImage> ApplyDefaultOrder(IQueryable<PortfolioImage> query) =>
         query
