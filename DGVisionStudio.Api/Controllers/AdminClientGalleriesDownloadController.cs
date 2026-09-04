@@ -34,6 +34,23 @@ public class AdminClientGalleriesDownloadController : ControllerBase
     {
     }
 
+    [HttpGet("download-all")]
+    public async Task<IActionResult> DownloadAllAlbums(CancellationToken cancellationToken)
+    {
+        var result = await _service.CreatePhysicalArchiveAsync(cancellationToken);
+        if (!result.IsSuccess || result.Value is not PhysicalFileDownloadResult file)
+            return this.ToActionResult(result);
+
+        Response.Headers.CacheControl = "no-store";
+        Response.OnCompleted(file.CleanupAsync);
+
+        return PhysicalFile(
+            file.Path,
+            file.ContentType,
+            file.FileName,
+            enableRangeProcessing: false);
+    }
+
     [HttpGet("download-all-stream")]
     public async Task<IActionResult> DownloadAllAlbumsStream(CancellationToken cancellationToken)
     {
