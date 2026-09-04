@@ -52,16 +52,6 @@ public class AdminClientGalleriesDownloadController : ControllerBase
     }
 
     [HttpGet("download-all-stream")]
-    public async Task<IActionResult> DownloadAllAlbumsStream(CancellationToken cancellationToken)
-    {
-        var result = await _service.PrepareStreamingArchiveAsync(cancellationToken);
-        if (!result.IsSuccess || result.Value is not StreamingFileDownloadResult file)
-            return this.ToActionResult(result);
-
-        Response.ContentType = file.ContentType;
-        Response.Headers.ContentDisposition = $"attachment; filename=\"{file.FileName}\"";
-        Response.Headers.CacheControl = "no-store";
-        await file.WriteAsync(Response.Body, cancellationToken);
-        return new EmptyResult();
-    }
+    public Task<IActionResult> DownloadAllAlbumsStream(CancellationToken cancellationToken) =>
+        DownloadAllAlbums(cancellationToken);
 }
