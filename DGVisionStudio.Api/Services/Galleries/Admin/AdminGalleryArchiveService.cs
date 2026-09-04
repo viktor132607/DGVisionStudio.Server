@@ -30,35 +30,39 @@ public sealed class AdminGalleryArchiveService : IAdminGalleryArchiveService
         if (albums.Count == 0)
             return NoAlbums();
 
-        var tempPath = Path.Combine(
+        var archiveId = Guid.NewGuid().ToString("N");
+        var tempRoot = Path.Combine(
             Path.GetTempPath(),
-            $"dgvisionstudio-all-albums-{Guid.NewGuid():N}.zip");
-        var addedFiles = 0;
-        var skippedFiles = 0;
+            $"dgvisionstudio-all-albums-{archiveId}");
+        var tempZipPath = Path.Combine(
+            Path.GetTempPath(),
+            $"dgvisionstudio-all-albums-{archiveId}.zip");
 
         try
         {
-            await using (var fileStream = new FileStream(
-                tempPath,
-                FileMode.CreateNew,
-                FileAccess.ReadWrite,
-                FileShare.None,
-                1024 * 1024,
-                FileOptions.Asynchronous | FileOptions.SequentialScan))
-            {
-                using var archive = new ZipArchive(fileStream, ZipArchiveMode.Create, leaveOpen: true);
-                (addedFiles, skippedFiles) = await WriteAlbumsAsync(
-                    archive,
-                    albums,
-                    cancellationToken,
-                    CompressionLevel.NoCompression);
-            }
+            Directory.CreateDirectory(tempRoot);
+
+            var (addedFiles, skippedFiles) = await WriteAlbumFoldersAsync(
+                tempRoot,
+                albums,
+                cancellationToken);
 
             if (addedFiles == 0)
             {
-                DeleteTempFile(tempPath);
+                DeleteDirectory(tempRoot);
+                DeleteTempFile(tempZipPath);
                 return NoPhotos();
             }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            ZipFile.CreateFromDirectory(
+                tempRoot,
+                tempZipPath,
+                CompressionLevel.NoCompression,
+                includeBaseDirectory: false);
+
+            DeleteDirectory(tempRoot);
 
             _logger.LogInformation(
                 "Admin created all albums archive. Albums: {AlbumCount}, Photos: {PhotoCount}, Skipped: {SkippedFiles}",
@@ -67,23 +71,26 @@ public sealed class AdminGalleryArchiveService : IAdminGalleryArchiveService
                 skippedFiles);
 
             return ControllerServiceResult.Ok(new PhysicalFileDownloadResult(
-                tempPath,
+                tempZipPath,
                 "application/zip",
                 "dgvisionstudio-all-albums.zip",
                 () =>
                 {
-                    DeleteTempFile(tempPath);
+                    DeleteTempFile(tempZipPath);
+                    DeleteDirectory(tempRoot);
                     return Task.CompletedTask;
                 }));
         }
         catch (OperationCanceledException)
         {
-            DeleteTempFile(tempPath);
+            DeleteDirectory(tempRoot);
+            DeleteTempFile(tempZipPath);
             return ControllerServiceResult.NoContent();
         }
         catch (Exception ex)
         {
-            DeleteTempFile(tempPath);
+            DeleteDirectory(tempRoot);
+            DeleteTempFile(tempZipPath);
             _logger.LogError(ex, "Failed to create all albums archive.");
             return ControllerServiceResult.Error(new
             {
@@ -109,25 +116,23 @@ public sealed class AdminGalleryArchiveService : IAdminGalleryArchiveService
             "dgvisionstudio-all-albums.zip",
             async (destination, token) =>
             {
-                var addedFiles = 0;
-                var skippedFiles = 0;
+                var tempRoot = Path.Combine(
+                    Path.GetTempPath(),
+                    $"dgvisionstudio-all-albums-stream-{Guid.NewGuid():N}");
 
                 try
                 {
-                    using var archive = new ZipArchive(destination, ZipArchiveMode.Create, leaveOpen: true);
-                    (addedFiles, skippedFiles) = await WriteAlbumsAsync(
-                        archive,
+                    Directory.CreateDirectory(tempRoot);
+                    var (addedFiles, skippedFiles) = await WriteAlbumFoldersAsync(
+                        tempRoot,
                         albums,
-                        token,
-                        CompressionLevel.NoCompression);
+                        token);
 
                     if (addedFiles == 0)
-                    {
-                        var entry = archive.CreateEntry("README.txt", CompressionLevel.NoCompression);
-                        await using var entryStream = entry.Open();
-                        await using var writer = new StreamWriter(entryStream);
-                        await writer.WriteAsync("No photos could be added to the archive.");
-                    }
+                        return;
+
+                    using var archive = new ZipArchive(destination, ZipArchiveMode.Create, leaveOpen: true);
+                    AddDirectoryToArchive(archive, tempRoot);
 
                     _logger.LogInformation(
                         "Admin streamed all albums archive. Albums: {AlbumCount}, Photos: {PhotoCount}, Skipped: {SkippedFiles}",
@@ -138,6 +143,10 @@ public sealed class AdminGalleryArchiveService : IAdminGalleryArchiveService
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     _logger.LogError(ex, "Failed while streaming all albums archive.");
+                }
+                finally
+                {
+                    DeleteDirectory(tempRoot);
                 }
             }));
     }
@@ -156,22 +165,26 @@ public sealed class AdminGalleryArchiveService : IAdminGalleryArchiveService
             .ThenBy(x => x.Id)
             .ToListAsync(cancellationToken);
 
-    private async Task<(int AddedFiles, int SkippedFiles)> WriteAlbumsAsync(
-        ZipArchive archive,
+    private async Task<(int AddedFiles, int SkippedFiles)> WriteAlbumFoldersAsync(
+        string rootDirectory,
         IReadOnlyCollection<PortfolioAlbum> albums,
-        CancellationToken cancellationToken,
-        CompressionLevel compressionLevel)
+        CancellationToken cancellationToken)
     {
         var addedFiles = 0;
         var skippedFiles = 0;
+        var usedAlbumFolderNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var album in albums)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var categoryFolder = SafeZipSegment(
-                album.PortfolioCategory?.Name,
-                $"category-{album.PortfolioCategoryId}");
-            var albumFolder = $"{album.DisplayOrder:D3}-{SafeZipSegment(album.Title, $"album-{album.Id}")}";
+
+            var albumFolderName = MakeUniqueFolderName(
+                SafeZipSegment(album.Title, $"album-{album.Id}"),
+                album.Id,
+                usedAlbumFolderNames);
+            var albumDirectory = Path.Combine(rootDirectory, albumFolderName);
+            Directory.CreateDirectory(albumDirectory);
+
             var photos = album.Images
                 .Where(x => !x.IsDeleted && !string.IsNullOrWhiteSpace(x.ImageUrl))
                 .OrderBy(x => x.DisplayOrder)
@@ -181,6 +194,7 @@ public sealed class AdminGalleryArchiveService : IAdminGalleryArchiveService
             foreach (var photo in photos)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+
                 try
                 {
                     await using var source = await _fileStorageService.OpenReadAsync(photo.ImageUrl);
@@ -190,10 +204,20 @@ public sealed class AdminGalleryArchiveService : IAdminGalleryArchiveService
                         continue;
                     }
 
-                    var entryPath = $"{categoryFolder}/{albumFolder}/{photo.DisplayOrder:D3}-{photo.Id}{GetFileExtension(photo.ImageUrl)}";
-                    var entry = archive.CreateEntry(entryPath, compressionLevel);
-                    await using var entryStream = entry.Open();
-                    await source.CopyToAsync(entryStream, cancellationToken);
+                    var extension = GetFileExtension(photo.ImageUrl);
+                    var baseName = SafeZipSegment(photo.Name, $"photo-{photo.Id}");
+                    var fileName = $"{photo.DisplayOrder:D3}-{baseName}-{photo.Id}{extension}";
+                    var destinationPath = Path.Combine(albumDirectory, fileName);
+
+                    await using var target = new FileStream(
+                        destinationPath,
+                        FileMode.CreateNew,
+                        FileAccess.Write,
+                        FileShare.None,
+                        1024 * 1024,
+                        FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+                    await source.CopyToAsync(target, 1024 * 1024, cancellationToken);
                     addedFiles++;
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
@@ -201,7 +225,7 @@ public sealed class AdminGalleryArchiveService : IAdminGalleryArchiveService
                     skippedFiles++;
                     _logger.LogWarning(
                         ex,
-                        "Skipped photo while creating all albums archive. AlbumId: {AlbumId}, PhotoId: {PhotoId}",
+                        "Skipped photo while preparing all albums archive. AlbumId: {AlbumId}, PhotoId: {PhotoId}",
                         album.Id,
                         photo.Id);
                 }
@@ -209,6 +233,38 @@ public sealed class AdminGalleryArchiveService : IAdminGalleryArchiveService
         }
 
         return (addedFiles, skippedFiles);
+    }
+
+    private static void AddDirectoryToArchive(ZipArchive archive, string rootDirectory)
+    {
+        foreach (var directory in Directory.EnumerateDirectories(rootDirectory, "*", SearchOption.AllDirectories))
+        {
+            var relativeDirectory = Path.GetRelativePath(rootDirectory, directory)
+                .Replace('\\', '/');
+
+            if (!Directory.EnumerateFileSystemEntries(directory).Any())
+                archive.CreateEntry($"{relativeDirectory.TrimEnd('/')}/");
+        }
+
+        foreach (var file in Directory.EnumerateFiles(rootDirectory, "*", SearchOption.AllDirectories))
+        {
+            var entryName = Path.GetRelativePath(rootDirectory, file)
+                .Replace('\\', '/');
+            archive.CreateEntryFromFile(file, entryName, CompressionLevel.NoCompression);
+        }
+    }
+
+    private static string MakeUniqueFolderName(
+        string desiredName,
+        int albumId,
+        ISet<string> usedNames)
+    {
+        if (usedNames.Add(desiredName))
+            return desiredName;
+
+        var withId = $"{desiredName}-{albumId}";
+        usedNames.Add(withId);
+        return withId;
     }
 
     private static ControllerServiceResult NoAlbums() =>
@@ -245,6 +301,19 @@ public sealed class AdminGalleryArchiveService : IAdminGalleryArchiveService
         {
             if (File.Exists(path))
                 File.Delete(path);
+        }
+        catch
+        {
+            // Best-effort cleanup.
+        }
+    }
+
+    private static void DeleteDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+                Directory.Delete(path, recursive: true);
         }
         catch
         {
