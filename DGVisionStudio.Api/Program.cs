@@ -264,6 +264,7 @@ if (!app.Environment.IsEnvironment("Testing"))
 	await ServicesDataSeeder.SeedAsync(app.Services);
 	await PricingDataSeeder.SeedAsync(app.Services);
 	await AppDataSeeder.SeedAsync(app.Services);
+	await TemporaryPortfolioPathSeeder.SeedAsync(app.Services);
 }
 
 app.UseStaticFiles();
