@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Scalar.AspNetCore;
 using Serilog;
 using System.Text.Json.Serialization;
@@ -95,7 +96,10 @@ builder.Services.AddDGVisionApplicationServices(storageOptions);
 var resolvedDatabaseConnection = DatabaseConnectionStringResolver.Resolve(builder.Configuration, builder.Environment);
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-	options.UseNpgsql(resolvedDatabaseConnection.ConnectionString));
+{
+	options.UseNpgsql(resolvedDatabaseConnection.ConnectionString);
+	options.ConfigureWarnings(warnings => warnings.Ignore(RelationalEventId.PendingModelChangesWarning));
+});
 
 builder.Services
 	.AddIdentity<ApplicationUser, IdentityRole>(options =>
