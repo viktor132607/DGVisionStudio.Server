@@ -263,15 +263,10 @@ if (!app.Environment.IsEnvironment("Testing"))
 	await PortfolioMediaNameSetup.EnsureAsync(app.Services);
 	await ServicesDataSeeder.SeedAsync(app.Services);
 	await PricingDataSeeder.SeedAsync(app.Services);
+	await AppDataSeeder.SeedAsync(app.Services);
 }
 
 app.UseStaticFiles();
-
-if (app.Environment.IsDevelopment())
-{
-	using var scope = app.Services.CreateScope();
-	await AppDataSeeder.SeedAsync(scope.ServiceProvider);
-}
 
 if (app.Environment.IsDevelopment())
 {
