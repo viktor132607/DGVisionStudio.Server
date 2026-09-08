@@ -1,4 +1,6 @@
 using System;
+using DGVisionStudio.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -6,6 +8,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace DGVisionStudio.Infrastructure.Migrations
 {
+    [DbContext(typeof(AppDbContext))]
+    [Migration("20260622120000_AddCalendarEvents")]
     public partial class AddCalendarEvents : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
