@@ -1,10 +1,14 @@
 using System;
+using DGVisionStudio.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace DGVisionStudio.Infrastructure.Migrations
 {
+    [DbContext(typeof(AppDbContext))]
+    [Migration("20260728130000_AddPortfolioAlbumPublishAtUtc")]
     public partial class AddPortfolioAlbumPublishAtUtc : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
