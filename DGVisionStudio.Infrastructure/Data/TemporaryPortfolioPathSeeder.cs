@@ -1,3 +1,4 @@
+using DGVisionStudio.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -7,6 +8,12 @@ public static class TemporaryPortfolioPathSeeder
 {
     private const string OldPrefix = "/images/portfolio/";
     private const string CorrectPrefix = "/images/porfolio/";
+
+    private static readonly string[] AdditionalRepositoryImages =
+    {
+        "/images/porfolio/events/bulgare/2.jpg",
+        "/images/porfolio/events/bulgare/3.jpg"
+    };
 
     public static async Task SeedAsync(IServiceProvider services)
     {
@@ -55,9 +62,6 @@ public static class TemporaryPortfolioPathSeeder
 
         await db.SaveChangesAsync();
 
-        // AppDataSeeder historically used /images/portfolio/. On subsequent starts it can
-        // temporarily insert the same image again before this repair runs, so keep the
-        // repaired data idempotent by removing active duplicates after path normalization.
         var activePortfolioImages = await db.PortfolioImages
             .Where(x => x.ImageUrl.StartsWith(CorrectPrefix))
             .OrderBy(x => x.Id)
@@ -72,6 +76,41 @@ public static class TemporaryPortfolioPathSeeder
         if (duplicates.Count > 0)
         {
             db.PortfolioImages.RemoveRange(duplicates);
+            await db.SaveChangesAsync();
+        }
+
+        // These two files are committed in the current repository in addition to the
+        // historical full Bulgare seed list, so keep them in the album as well.
+        var eventAlbum = await db.PortfolioAlbums
+            .Include(x => x.Images)
+            .FirstOrDefaultAsync(x => x.Slug == "event-bulgare");
+
+        if (eventAlbum != null)
+        {
+            var nextOrder = eventAlbum.Images.Count == 0
+                ? 1
+                : eventAlbum.Images.Max(x => x.DisplayOrder) + 1;
+
+            foreach (var path in AdditionalRepositoryImages)
+            {
+                if (eventAlbum.Images.Any(x => string.Equals(x.ImageUrl, path, StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+
+                db.PortfolioImages.Add(new PortfolioImage
+                {
+                    PortfolioAlbumId = eventAlbum.Id,
+                    ImageUrl = path,
+                    ThumbnailUrl = path,
+                    AltText = $"{eventAlbum.Title} {nextOrder}",
+                    DisplayOrder = nextOrder++,
+                    IsCover = false,
+                    IsPublished = true,
+                    CreatedAtUtc = DateTime.UtcNow
+                });
+            }
+
             await db.SaveChangesAsync();
         }
     }
