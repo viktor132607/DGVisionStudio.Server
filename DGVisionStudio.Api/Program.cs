@@ -248,6 +248,13 @@ Directory.CreateDirectory(Path.Combine(app.Environment.ContentRootPath, "logs"))
 
 if (!app.Environment.IsEnvironment("Testing"))
 {
+	using (var migrationScope = app.Services.CreateScope())
+	{
+		var dbContext = migrationScope.ServiceProvider.GetRequiredService<AppDbContext>();
+		app.Logger.LogInformation("Applying Entity Framework Core database migrations.");
+		await dbContext.Database.MigrateAsync();
+	}
+
 	await CalendarReminderSchemaSetup.EnsureAsync(app.Services);
 	await PortfolioMediaNameSetup.EnsureAsync(app.Services);
 	await ServicesDataSeeder.SeedAsync(app.Services);
