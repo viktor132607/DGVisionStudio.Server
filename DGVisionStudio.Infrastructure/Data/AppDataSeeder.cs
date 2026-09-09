@@ -8,47 +8,288 @@ namespace DGVisionStudio.Infrastructure.Data;
 
 public static class AppDataSeeder
 {
-    private static readonly string[] EventBulgarePaths =
-    {
-        "/images/porfolio/events/bulgare/1.jpg",
-        "/images/porfolio/events/bulgare/13.jpg",
-        "/images/porfolio/events/bulgare/2.jpg",
-        "/images/porfolio/events/bulgare/3.jpg"
-    };
+    private const int ExpectedPortfolioImageCount = 214;
 
-    private static readonly string[] GraduateAzraPaths =
+    private static string[] Paths(string folder, params string[] files)
     {
-        "/images/porfolio/балове/Бал Азра/640973347_122099975325277251_9203183424506999673_n.jpg"
-    };
+        var result = new string[files.Length];
+        for (var i = 0; i < files.Length; i++)
+        {
+            result[i] = $"{folder}/{files[i]}";
+        }
 
-    private static readonly string[] WinterPortraitPaths =
-    {
-        "/images/porfolio/ПОРТРЕТ/зимна фотосесия ПОРТРЕТ/2U2A2362.jpg"
-    };
+        return result;
+    }
 
-    private static readonly string[] SpringPortraitPaths =
-    {
-        "/images/porfolio/ПОРТРЕТ/ПРОЛЕТ ПОРТРЕТ/2U2A6320.jpg",
-        "/images/porfolio/ПОРТРЕТ/ПРОЛЕТ ПОРТРЕТ/2U2A6355.jpg",
-        "/images/porfolio/ПОРТРЕТ/ПРОЛЕТ ПОРТРЕТ/2U2A6399.jpg",
-        "/images/porfolio/ПОРТРЕТ/ПРОЛЕТ ПОРТРЕТ/2U2A6404.jpg",
-        "/images/porfolio/ПОРТРЕТ/ПРОЛЕТ ПОРТРЕТ/2U2A6442.jpg"
-    };
+    private static readonly string[] EventBulgarePaths = Paths(
+        "/images/porfolio/events/bulgare",
+        "1.jpg",
+        "13.jpg",
+        "2.jpg",
+        "3.jpg"
+    );
 
-    private static readonly string[] Baptism1Paths =
-    {
-        "/images/porfolio/кръщенета/Кръщене 1/2U2A2111.jpg"
-    };
+    private static readonly string[] GraduateAzraPaths = Paths(
+        "/images/porfolio/балове/Бал Азра",
+        "639766578_122099975367277251_3978753087381724830_n.jpg",
+        "640072369_122099975331277251_8854217072496019133_n.jpg",
+        "640365873_122099976543277251_3510489861658993091_n.jpg",
+        "640973347_122099975325277251_9203183424506999673_n.jpg",
+        "ГОТОВИ втори вариант _4.jpg",
+        "ГОТОВИ втори вариант _5.jpg",
+        "ГОТОВИ втори вариант _8.jpg",
+        "ГОТОВИ втори вариант _17.jpg",
+        "ГОТОВИ втори вариант _18.jpg",
+        "ГОТОВИ втори вариант _22.jpg",
+        "ГОТОВИ втори вариант _26.jpg",
+        "ГОТОВИ втори вариант _32.jpg",
+        "ГОТОВИ втори вариант _39.jpg",
+        "ГОТОВИ втори вариант _42.jpg",
+        "ГОТОВИ втори вариант _43.jpg",
+        "ГОТОВИ втори вариант _54.jpg",
+        "ГОТОВИ втори вариант _60.jpg",
+        "ГОТОВИ втори вариант _64.jpg"
+    );
 
-    private static readonly string[] Wedding3Paths =
-    {
-        "/images/porfolio/СВАТБИ/СВАТБА 3/2U2A1723.jpg"
-    };
+    private static readonly string[] GraduateVeronicaPaths = Paths(
+        "/images/porfolio/балове/Бал Вероника",
+        "DSC_1006.jpg",
+        "DSC_1015.jpg",
+        "DSC_1036.jpg",
+        "DSC_1041.jpg",
+        "DSC_1050.jpg",
+        "DSC_1060.jpg",
+        "DSC_1236.jpg",
+        "DSC_1283.jpg",
+        "DSC_1335.jpg",
+        "DSC_1374.jpg"
+    );
 
-    private static readonly string[] LandscapePaths =
-    {
-        "/images/porfolio/ПЕЙЗАЖИ/650235666_122104710225277251_7176854112806431771_n.jpg"
-    };
+    private static readonly string[] GraduateZaraPaths = Paths(
+        "/images/porfolio/балове/Бал Зара",
+        "DSC_0010.jpg",
+        "DSC_0023.jpg",
+        "DSC_0024.jpg",
+        "DSC_0238.jpg",
+        "DSC_0307.jpg",
+        "DSC_0468.jpg",
+        "DSC_9778.jpg",
+        "DSC_9783.jpg",
+        "DSC_9842.jpg",
+        "DSC_9893.jpg"
+    );
+
+    private static readonly string[] GraduateYanaPaths = Paths(
+        "/images/porfolio/балове/Бал Яна",
+        "DSC_0606-3.jpg",
+        "DSC_0607-4.jpg",
+        "DSC_0632-9.jpg",
+        "DSC_0676-17.jpg",
+        "DSC_0696-21.jpg",
+        "DSC_0700-23.jpg",
+        "DSC_0725-26.jpg",
+        "DSC_0777-38.jpg",
+        "DSC_0837-48.jpg",
+        "DSC_0860-52.jpg",
+        "DSC_0910-64.jpg",
+        "DSC_0916-67.jpg",
+        "DSC_0964-77.jpg",
+        "DSC_0971-79.jpg",
+        "DSC_0981-80.jpg",
+        "DSC_0987-81.jpg",
+        "DSC_0993-82.jpg",
+        "DSC_0997-83.jpg",
+        "DSC_1000-84.jpg",
+        "DSC_1003-85.jpg"
+    );
+
+    private static readonly string[] WinterPortraitPaths = Paths(
+        "/images/porfolio/ПОРТРЕТ/зимна фотосесия ПОРТРЕТ",
+        "2U2A2362.jpg",
+        "2U2A2395.jpg",
+        "2U2A2399.jpg",
+        "2U2A2406.jpg",
+        "2U2A2429.jpg",
+        "2U2A2476.jpg",
+        "2U2A2534.jpg",
+        "2U2A2573.jpg",
+        "2U2A2594.jpg",
+        "2U2A4022.jpg",
+        "2U2A4028.jpg",
+        "2U2A4139.jpg",
+        "2U2A4164.jpg",
+        "2U2A4174.jpg",
+        "2U2A4214.jpg",
+        "2U2A4243.jpg",
+        "2U2A4253.jpg",
+        "2U2A4301.jpg",
+        "2U2A4356.jpg",
+        "2U2A4359.jpg",
+        "2U2A4440.jpg",
+        "2U2A4446.jpg",
+        "2U2A4463.jpg",
+        "2U2A4567.jpg",
+        "2U2A4571.jpg",
+        "2U2A4609.jpg",
+        "2U2A4618.jpg",
+        "2U2A4644.jpg",
+        "2U2A4663.jpg",
+        "641416539_122101709805277251_8677250284073032946_n.jpg"
+    );
+
+    private static readonly string[] SpringPortraitPaths = Paths(
+        "/images/porfolio/ПОРТРЕТ/ПРОЛЕТ ПОРТРЕТ",
+        "2U2A6320.jpg",
+        "2U2A6355.jpg",
+        "2U2A6399.jpg",
+        "2U2A6404.jpg",
+        "2U2A6442.jpg"
+    );
+
+    private static readonly string[] TheodoraPortraitPaths = Paths(
+        "/images/porfolio/ПОРТРЕТ/ТЕОДОРА портрет",
+        "2U2A9140.jpg",
+        "2U2A9146.jpg",
+        "2U2A9150.jpg",
+        "2U2A9183.jpg",
+        "2U2A9187.jpg",
+        "2U2A9206.jpg"
+    );
+
+    private static readonly string[] Baptism1Paths = Paths(
+        "/images/porfolio/кръщенета/Кръщене 1",
+        "2U2A1842.jpg",
+        "2U2A1866.jpg",
+        "2U2A1882.jpg",
+        "2U2A1897.jpg",
+        "2U2A1917.jpg",
+        "2U2A1924.jpg",
+        "2U2A1928.jpg",
+        "2U2A1940.jpg",
+        "2U2A1958.jpg",
+        "2U2A1980.jpg",
+        "2U2A1984.jpg",
+        "2U2A1999.jpg",
+        "2U2A2106.jpg",
+        "2U2A2111.jpg",
+        "2U2A2116.jpg",
+        "2U2A2128.jpg",
+        "2U2A2134.jpg",
+        "2U2A2141.jpg",
+        "2U2A2152.jpg",
+        "2U2A2186.jpg",
+        "2U2A2198.jpg",
+        "2U2A2410.jpg",
+        "2U2A2419.jpg"
+    );
+
+    private static readonly string[] Baptism2Paths = Paths(
+        "/images/porfolio/кръщенета/КРЪЩЕНЕ 2",
+        "2U2A8969.jpg",
+        "2U2A8978.jpg",
+        "2U2A8999.jpg",
+        "2U2A9018.jpg",
+        "2U2A9040.jpg",
+        "2U2A9089.jpg",
+        "2U2A9102.jpg",
+        "2U2A9202.jpg",
+        "2U2A9210.jpg",
+        "2U2A9220.jpg",
+        "2U2A9253.jpg",
+        "2U2A9256.jpg",
+        "2U2A9287.jpg",
+        "2U2A9344.jpg",
+        "2U2A9495.jpg",
+        "2U2A9506.jpg",
+        "2U2A9507.jpg",
+        "2U2A9551.jpg"
+    );
+
+    private static readonly string[] Wedding1Paths = Paths(
+        "/images/porfolio/СВАТБИ/СВАТБА 1",
+        "652218256_122105935065277251_6910562629463362805_n.jpg",
+        "652324174_122105935173277251_928166735313199811_n.jpg",
+        "652662412_122105935227277251_5451408023515913260_n.jpg",
+        "652929756_122105935101277251_5371404381692777414_n.jpg",
+        "653345408_122105935437277251_4254495819981584913_n.jpg",
+        "653759335_122105935497277251_2075686935719957022_n.jpg",
+        "654688641_122105935335277251_7457760121515071198_n.jpg",
+        "654796604_122105935269277251_6083788571253739878_n.jpg",
+        "654846086_122105935389277251_2252568087198579211_n.jpg",
+        "654965058_122105935551277251_1647099086538045574_n.jpg"
+    );
+
+    private static readonly string[] Wedding2Paths = Paths(
+        "/images/porfolio/СВАТБИ/СВАТБА 2",
+        "2U2A8184-Enhanced-NR.jpg",
+        "2U2A8185-Enhanced-NR.jpg",
+        "2U2A8186-Enhanced-NR.jpg",
+        "2U2A8187-Enhanced-NR.jpg",
+        "2U2A8190-Enhanced-NR.jpg",
+        "2U2A8192-Enhanced-NR.jpg",
+        "2U2A8197.jpg",
+        "2U2A8200-Enhanced-NR.jpg",
+        "2U2A8203-Enhanced-NR.jpg",
+        "2U2A8210-Enhanced-NR.jpg",
+        "2U2A8214-Enhanced-NR.jpg",
+        "2U2A8217-Enhanced-NR.jpg",
+        "2U2A8221-Enhanced-NR.jpg",
+        "2U2A8231-Enhanced-NR.jpg",
+        "2U2A8233-Enhanced-NR.jpg",
+        "2U2A8239-Enhanced-NR.jpg",
+        "2U2A8243-Enhanced-NR.jpg",
+        "2U2A8249-Enhanced-NR.jpg",
+        "2U2A8254-Enhanced-NR.jpg",
+        "2U2A8269-Enhanced-NR.jpg",
+        "2U2A8274-Enhanced-NR.jpg",
+        "2U2A8285-Enhanced-NR.jpg",
+        "2U2A8328-Enhanced-NR.jpg",
+        "2U2A8335-Enhanced-NR.jpg",
+        "2U2A8351-Enhanced-NR.jpg",
+        "2U2A8352-Enhanced-NR.jpg",
+        "2U2A8353-Enhanced-NR.jpg",
+        "2U2A8412-Enhanced-NR.jpg",
+        "2U2A8419-Enhanced-NR.jpg",
+        "2U2A8424-Enhanced-NR.jpg"
+    );
+
+    private static readonly string[] Wedding3Paths = Paths(
+        "/images/porfolio/СВАТБИ/СВАТБА 3",
+        "2U2A1549.jpg",
+        "2U2A1570.jpg",
+        "2U2A1646.jpg",
+        "2U2A1648.jpg",
+        "2U2A1654.jpg",
+        "2U2A1656.jpg",
+        "2U2A1658.jpg",
+        "2U2A1661.jpg",
+        "2U2A1677.jpg",
+        "2U2A1688.jpg",
+        "2U2A1693.jpg",
+        "2U2A1707.jpg",
+        "2U2A1723.jpg",
+        "2U2A1779.jpg",
+        "2U2A1788.jpg",
+        "2U2A1895.jpg",
+        "2U2A1954.jpg",
+        "2U2A1958.jpg",
+        "2U2A1968.jpg",
+        "2U2A1975.jpg",
+        "2U2A1976.jpg",
+        "2U2A2042.jpg",
+        "2U2A2047.jpg",
+        "2U2A2049.jpg",
+        "2U2A2060.jpg",
+        "2U2A2077.jpg",
+        "2U2A2095.jpg",
+        "2U2A2096.jpg",
+        "2U2A2104.jpg"
+    );
+
+    private static readonly string[] LandscapePaths = Paths(
+        "/images/porfolio/ПЕЙЗАЖИ",
+        "650235666_122104710225277251_7176854112806431771_n.jpg"
+    );
 
     public static async Task SeedAsync(IServiceProvider services)
     {
@@ -194,12 +435,30 @@ public static class AppDataSeeder
         {
             new("portrait-winter", "portrait", "Зимна фотосесия", "Winter Portrait Session", 1, WinterPortraitPaths),
             new("portrait-spring", "portrait", "Пролетен портрет", "Spring Portrait", 2, SpringPortraitPaths),
+            new("portrait-theodora", "portrait", "Теодора портрет", "Theodora Portrait", 3, TheodoraPortraitPaths),
             new("event-bulgare", "event", "Bulgare", "Bulgare", 1, EventBulgarePaths),
             new("graduate-azra", "graduate", "Бал Азра", "Azra Prom", 1, GraduateAzraPaths),
+            new("graduate-veronica", "graduate", "Бал Вероника", "Veronica Prom", 2, GraduateVeronicaPaths),
+            new("graduate-zara", "graduate", "Бал Зара", "Zara Prom", 3, GraduateZaraPaths),
+            new("graduate-yana", "graduate", "Бал Яна", "Yana Prom", 4, GraduateYanaPaths),
             new("baptism-1", "baptism", "Кръщене 1", "Baptism 1", 1, Baptism1Paths),
-            new("wedding-3", "wedding", "Сватба 3", "Wedding 3", 1, Wedding3Paths),
+            new("baptism-2", "baptism", "Кръщене 2", "Baptism 2", 2, Baptism2Paths),
+            new("wedding-1", "wedding", "Сватба 1", "Wedding 1", 1, Wedding1Paths),
+            new("wedding-2", "wedding", "Сватба 2", "Wedding 2", 2, Wedding2Paths),
+            new("wedding-3", "wedding", "Сватба 3", "Wedding 3", 3, Wedding3Paths),
             new("landscape-main", "landscape", "Пейзажи", "Landscape", 1, LandscapePaths)
         };
+
+        var imageCount = 0;
+        foreach (var seed in albumSeeds)
+        {
+            imageCount += seed.Paths.Count;
+        }
+
+        if (imageCount != ExpectedPortfolioImageCount)
+        {
+            throw new InvalidOperationException($"Portfolio seed must contain exactly {ExpectedPortfolioImageCount} images, but contains {imageCount}.");
+        }
 
         var existingAlbums = await db.PortfolioAlbums
             .Include(x => x.Images)
@@ -248,6 +507,20 @@ public static class AppDataSeeder
             if (album == null)
             {
                 continue;
+            }
+
+            var seedPathSet = new HashSet<string>(seed.Paths, StringComparer.OrdinalIgnoreCase);
+            var staleImages = album.Images
+                .Where(x => !seedPathSet.Contains(x.ImageUrl))
+                .ToList();
+
+            if (staleImages.Count > 0)
+            {
+                db.PortfolioImages.RemoveRange(staleImages);
+                foreach (var staleImage in staleImages)
+                {
+                    album.Images.Remove(staleImage);
+                }
             }
 
             var existingImagesByUrl = album.Images.ToDictionary(x => x.ImageUrl, StringComparer.OrdinalIgnoreCase);
