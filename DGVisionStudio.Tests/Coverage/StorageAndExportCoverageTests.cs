@@ -89,13 +89,14 @@ public sealed class AdminClientGalleryExportAdditionalTests
         result.StatusCode.Should().Be(StatusCodes.Status200OK);
         var download = result.Value.Should().BeOfType<FileDownloadResult>().Subject;
         download.ContentType.Should().Be("application/zip");
-        download.FileName.Should().Be("dgvisionstudio-all-albums.zip");
+        download.FileName.Should().Be($"Archive({DateTime.UtcNow:yyyy-MM-dd}).zip");
         await using var stream = download.Stream;
         using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: true);
-        archive.Entries.Should().HaveCount(2);
-        archive.Entries.Select(x => x.FullName).Should().OnlyContain(x => x.StartsWith("Client-Photos/"));
-        archive.Entries.Select(x => Path.GetExtension(x.FullName)).Should().BeEquivalentTo([".jpg", ".jpeg"]);
-        archive.Entries.Select(x => x.Length).Should().OnlyContain(x => x == 3);
+        var files = archive.Entries.Where(x => x.Name.Length > 0).ToArray();
+        files.Should().HaveCount(2);
+        files.Select(x => x.FullName).Should().OnlyContain(x => x.StartsWith($"Archive({DateTime.UtcNow:yyyy-MM-dd})/Client-Photos/"));
+        files.Select(x => Path.GetExtension(x.FullName)).Should().BeEquivalentTo([".jpg", ".jpeg"]);
+        files.Select(x => x.Length).Should().OnlyContain(x => x == 3);
     }
 
     [Fact]
@@ -269,3 +270,4 @@ public sealed class FileStorageImageCoverageTests
         return path;
     }
 }
+

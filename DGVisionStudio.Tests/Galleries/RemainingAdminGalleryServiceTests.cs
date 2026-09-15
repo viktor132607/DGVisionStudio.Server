@@ -118,8 +118,12 @@ public sealed class AdminClientGalleryExportServiceTests
         var download = result.Value.Should().BeOfType<FileDownloadResult>().Subject;
         download.ContentType.Should().Be("application/zip");
         using var archive = new ZipArchive(download.Stream, ZipArchiveMode.Read, leaveOpen: false);
-        archive.Entries.Should().ContainSingle();
-        archive.Entries[0].FullName.Should().EndWith(".jpg");
+        var photo = archive.Entries.Where(entry => entry.Name.Length > 0).Should().ContainSingle().Subject;
+        photo.FullName.Should().Be($"Archive({DateTime.UtcNow:yyyy-MM-dd})/Weddings/Client Album/photo-{image.Id}.jpg");
+        using var content = photo.Open();
+        using var bytes = new MemoryStream();
+        await content.CopyToAsync(bytes);
+        bytes.ToArray().Should().Equal(1, 2, 3, 4);
     }
 
     private static AdminRequestContext AdminContext() => new(
@@ -162,3 +166,4 @@ public sealed class AdminClientGalleryManagementServiceTests
         invalid.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
     }
 }
+

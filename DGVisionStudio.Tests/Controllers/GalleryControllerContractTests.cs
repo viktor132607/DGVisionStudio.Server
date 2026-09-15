@@ -179,25 +179,28 @@ public sealed class AdminClientGalleriesArchiveControllerTests
 public sealed class AdminClientGalleriesDownloadControllerTests
 {
     [Fact]
-    public async Task DownloadAllAlbumsStream_WritesArchiveAndResponseHeaders()
+    public async Task DownloadAllAlbumsStream_ReturnsVerifiedPhysicalArchiveAndHeaders()
     {
-        var service = new StubAdminGalleryArchiveService
+        var tempPath = Path.GetTempFileName();
+        try
         {
-            StreamingHandler = _ => Task.FromResult(ControllerServiceResult.Ok(
-                new StreamingFileDownloadResult(
-                    "application/zip",
-                    "albums.zip",
-                    async (destination, token) => await destination.WriteAsync(new byte[] { 4, 5, 6 }, token))))
-        };
-        var controller = new AdminClientGalleriesDownloadController(service);
-        var context = ControllerTestContext.Attach(controller);
+            await File.WriteAllBytesAsync(tempPath, [4, 5, 6]);
+            var service = new StubAdminGalleryArchiveService
+            {
+                PhysicalHandler = _ => Task.FromResult(ControllerServiceResult.Ok(
+                    new PhysicalFileDownloadResult(tempPath, "application/zip", "albums.zip", () => Task.CompletedTask)))
+            };
+            var controller = new AdminClientGalleriesDownloadController(service);
+            var context = ControllerTestContext.Attach(controller);
 
-        var result = await controller.DownloadAllAlbumsStream(CancellationToken.None);
+            var result = await controller.DownloadAllAlbumsStream(CancellationToken.None);
 
-        result.Should().BeOfType<EmptyResult>();
-        context.Response.ContentType.Should().Be("application/zip");
-        context.Response.Headers.ContentDisposition.ToString().Should().Contain("albums.zip");
-        context.Response.Headers.CacheControl.ToString().Should().Be("no-store");
-        ((MemoryStream)context.Response.Body).ToArray().Should().Equal(4, 5, 6);
+            var file = result.Should().BeOfType<PhysicalFileResult>().Subject;
+            file.ContentType.Should().Be("application/zip");
+            file.FileDownloadName.Should().Be("albums.zip");
+            context.Response.Headers.CacheControl.ToString().Should().Be("no-store");
+            (await File.ReadAllBytesAsync(file.FileName)).Should().Equal(4, 5, 6);
+        }
+        finally { File.Delete(tempPath); }
     }
 }

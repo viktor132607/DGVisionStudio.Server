@@ -400,6 +400,7 @@ public static class AppDataSeeder
         };
 
         var existingCategories = await db.PortfolioCategories
+            .IgnoreQueryFilters()
             .OrderBy(x => x.DisplayOrder)
             .ThenBy(x => x.Id)
             .ToListAsync();
@@ -407,6 +408,7 @@ public static class AppDataSeeder
         foreach (var seed in categorySeeds)
         {
             var category = existingCategories.FirstOrDefault(x => x.Key == seed.Key);
+            if (category is not null) continue; // Preserve admin edits and deletion tombstones.
             if (category == null)
             {
                 category = new PortfolioCategory
@@ -428,6 +430,7 @@ public static class AppDataSeeder
         await db.SaveChangesAsync();
 
         var categoriesByKey = await db.PortfolioCategories
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .ToDictionaryAsync(x => x.Key, StringComparer.OrdinalIgnoreCase);
 
@@ -461,17 +464,21 @@ public static class AppDataSeeder
         }
 
         var existingAlbums = await db.PortfolioAlbums
+            .IgnoreQueryFilters()
             .Include(x => x.Images)
             .ToListAsync();
 
+        var newAlbumSlugs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var seed in albumSeeds)
         {
-            if (!categoriesByKey.TryGetValue(seed.CategoryKey, out var category))
+            if (!categoriesByKey.TryGetValue(seed.CategoryKey, out var category) || category.IsDeleted)
             {
                 continue;
             }
 
             var album = existingAlbums.FirstOrDefault(x => x.Slug == seed.Slug);
+            if (album is not null) continue; // Seeding must never undo moves, deletes or media edits.
+            newAlbumSlugs.Add(seed.Slug);
             if (album == null)
             {
                 album = new PortfolioAlbum
@@ -498,6 +505,7 @@ public static class AppDataSeeder
         await db.SaveChangesAsync();
 
         var allAlbums = await db.PortfolioAlbums
+            .Where(x => newAlbumSlugs.Contains(x.Slug))
             .Include(x => x.Images)
             .ToListAsync();
 
@@ -507,20 +515,6 @@ public static class AppDataSeeder
             if (album == null)
             {
                 continue;
-            }
-
-            var seedPathSet = new HashSet<string>(seed.Paths, StringComparer.OrdinalIgnoreCase);
-            var staleImages = album.Images
-                .Where(x => !seedPathSet.Contains(x.ImageUrl))
-                .ToList();
-
-            if (staleImages.Count > 0)
-            {
-                db.PortfolioImages.RemoveRange(staleImages);
-                foreach (var staleImage in staleImages)
-                {
-                    album.Images.Remove(staleImage);
-                }
             }
 
             var existingImagesByUrl = album.Images.ToDictionary(x => x.ImageUrl, StringComparer.OrdinalIgnoreCase);
@@ -684,3 +678,4 @@ public static class AppDataSeeder
         IReadOnlyList<string> Paths
     );
 }
+

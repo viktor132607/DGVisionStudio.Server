@@ -33,8 +33,8 @@ public sealed class AdminGalleryArchiveCoverageTests
         File.Exists(download.Path).Should().BeTrue();
         using (var archive = ZipFile.OpenRead(download.Path))
         {
-            archive.Entries.Should().ContainSingle();
-            archive.Entries[0].FullName.Should().EndWith(".jpg");
+            archive.Entries.Where(e => e.Name.Length > 0).Should().ContainSingle();
+            archive.Entries.Should().Contain(e => e.FullName.EndsWith(".jpg"));
         }
 
         await download.CleanupAsync();
@@ -42,7 +42,7 @@ public sealed class AdminGalleryArchiveCoverageTests
     }
 
     [Fact]
-    public async Task PrepareStreamingArchiveAsync_WritesReadme_WhenEveryPhotoIsMissing()
+    public async Task PrepareStreamingArchiveAsync_RejectsDownload_WhenEveryPhotoIsMissing()
     {
         await using var fixture = await GallerySqliteFixture.CreateAsync();
         await SeedAlbumAsync(fixture.Context, "/uploads/gallery/missing.jpg");
@@ -53,17 +53,12 @@ public sealed class AdminGalleryArchiveCoverageTests
 
         var result = await service.PrepareStreamingArchiveAsync(CancellationToken.None);
 
-        result.StatusCode.Should().Be(StatusCodes.Status200OK);
-        var download = result.Value.Should().BeOfType<StreamingFileDownloadResult>().Subject;
-        await using var destination = new MemoryStream();
-        await download.WriteAsync(destination, CancellationToken.None);
-        destination.Position = 0;
-        using var archive = new ZipArchive(destination, ZipArchiveMode.Read, leaveOpen: true);
-        archive.Entries.Should().ContainSingle(x => x.FullName == "README.txt");
+        result.StatusCode.Should().Be(StatusCodes.Status404NotFound);
+        result.Value.Should().NotBeOfType<StreamingFileDownloadResult>();
     }
 
     [Fact]
-    public async Task ArchiveMethods_ReturnNoPhotos_WhenAlbumContainsNoMedia()
+    public async Task ArchiveMethods_PreserveEmptyAlbumFolders()
     {
         await using var fixture = await GallerySqliteFixture.CreateAsync();
         await SeedAlbumAsync(fixture.Context, imageUrl: null);
@@ -75,8 +70,16 @@ public sealed class AdminGalleryArchiveCoverageTests
         var physical = await service.CreatePhysicalArchiveAsync(CancellationToken.None);
         var streaming = await service.PrepareStreamingArchiveAsync(CancellationToken.None);
 
-        physical.StatusCode.Should().Be(StatusCodes.Status404NotFound);
-        streaming.StatusCode.Should().Be(StatusCodes.Status404NotFound);
+        physical.StatusCode.Should().Be(StatusCodes.Status200OK);
+        var file = physical.Value.Should().BeOfType<PhysicalFileDownloadResult>().Subject;
+        using (var zip = ZipFile.OpenRead(file.Path))
+            zip.Entries.Should().HaveCount(3).And.OnlyContain(e => e.FullName.EndsWith("/"));
+        await file.CleanupAsync();
+        streaming.StatusCode.Should().Be(StatusCodes.Status200OK);
+        var stream = streaming.Value.Should().BeOfType<StreamingFileDownloadResult>().Subject;
+        await using var target = new MemoryStream();
+        await stream.WriteAsync(target, CancellationToken.None);
+        target.Length.Should().BeGreaterThan(0);
     }
 
     private static async Task SeedAlbumAsync(
@@ -301,3 +304,4 @@ public sealed class AdminGalleryMediaUploadCoverageTests : IDisposable
             Directory.Delete(_root, recursive: true);
     }
 }
+

@@ -82,10 +82,11 @@ public static class TemporaryPortfolioPathSeeder
         // These two files are committed in the current repository in addition to the
         // historical full Bulgare seed list, so keep them in the album as well.
         var eventAlbum = await db.PortfolioAlbums
+            .IgnoreQueryFilters()
             .Include(x => x.Images)
             .FirstOrDefaultAsync(x => x.Slug == "event-bulgare");
 
-        if (eventAlbum != null)
+        if (eventAlbum != null && !eventAlbum.IsDeleted)
         {
             var nextOrder = eventAlbum.Images.Count == 0
                 ? 1
@@ -125,3 +126,4 @@ public static class TemporaryPortfolioPathSeeder
         return value.Replace(OldPrefix, CorrectPrefix, StringComparison.OrdinalIgnoreCase);
     }
 }
+

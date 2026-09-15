@@ -1,8 +1,11 @@
 using System.Reflection;
+using DGVisionStudio.Api.Services;
+using DGVisionStudio.Domain.Entities;
 using DGVisionStudio.Infrastructure.Data;
 using DGVisionStudio.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DGVisionStudio.Tests.Coverage;
 
@@ -27,7 +30,7 @@ public sealed class AppDataSeederTests
 
         (await fixture.Context.PortfolioCategories.CountAsync()).Should().Be(13);
         (await fixture.Context.PortfolioAlbums.CountAsync()).Should().Be(14);
-        (await fixture.Context.PortfolioImages.CountAsync()).Should().BeGreaterThan(100);
+        (await fixture.Context.PortfolioImages.CountAsync()).Should().Be(214);
         (await fixture.Context.Services.CountAsync()).Should().Be(3);
         (await fixture.Context.Testimonials.CountAsync()).Should().Be(2);
         (await fixture.Context.SiteSettings.CountAsync()).Should().Be(4);
@@ -42,6 +45,48 @@ public sealed class AppDataSeederTests
         winter.IsPublished.Should().BeTrue();
         winter.Images.Should().NotBeEmpty();
         winter.Images.Count(x => x.IsCover).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task PortfolioSeeders_PreserveBulkMovesDeletesAndAdminEditsOnRestart()
+    {
+        await using var fixture = await GallerySqliteFixture.CreateAsync();
+        var db = fixture.Context;
+        await InvokeSeederAsync("SeedPortfolio", db);
+        var winter = await db.PortfolioAlbums.Include(a => a.Images).SingleAsync(a => a.Slug == "portrait-winter");
+        var baptism = await db.PortfolioAlbums.SingleAsync(a => a.Slug == "baptism-1");
+        var target = await db.PortfolioCategories.SingleAsync(c => c.Key == "wedding");
+        var portraits = await db.PortfolioCategories.SingleAsync(c => c.Key == "portrait");
+        portraits.IsActive = false;
+        portraits.Name = "Редактирана категория";
+        winter.Title = "Редактиран албум";
+        winter.Images.Add(new PortfolioImage { ImageUrl = "/uploads/custom.jpg", Name = "Custom" });
+        var eventPhoto = await db.PortfolioImages.SingleAsync(p => p.ImageUrl == "/images/porfolio/events/bulgare/2.jpg");
+        eventPhoto.IsDeleted = true;
+        await db.SaveChangesAsync();
+        var bulk = new PortfolioAlbumBulkService(db, new RecordingAuditLogService());
+        var admin = new AdminRequestContext("admin", "admin@test.bg", "Admin", null, "tests", "seed-restart");
+        (await bulk.ExecuteAsync([winter.Id], target.Id, admin, default)).StatusCode.Should().Be(200);
+        (await bulk.ExecuteAsync([baptism.Id], null, admin, default)).StatusCode.Should().Be(200);
+        db.ChangeTracker.Clear();
+
+        await InvokeSeederAsync("SeedPortfolio", db);
+        var services = new ServiceCollection();
+        services.AddDbContext<AppDbContext>(options => options.UseSqlite(fixture.Connection));
+        await using (var provider = services.BuildServiceProvider()) await TemporaryPortfolioPathSeeder.SeedAsync(provider);
+        db.ChangeTracker.Clear();
+
+        var moved = await db.PortfolioAlbums.Include(a => a.Images).SingleAsync(a => a.Id == winter.Id);
+        moved.PortfolioCategoryId.Should().Be(target.Id);
+        moved.Title.Should().Be("Редактиран албум");
+        moved.Images.Should().Contain(p => p.ImageUrl == "/uploads/custom.jpg");
+        (await db.PortfolioAlbums.IgnoreQueryFilters().CountAsync()).Should().Be(14);
+        (await db.PortfolioImages.IgnoreQueryFilters().CountAsync()).Should().Be(215);
+        (await db.PortfolioAlbums.IgnoreQueryFilters().SingleAsync(a => a.Id == baptism.Id)).IsDeleted.Should().BeTrue();
+        (await db.PortfolioImages.IgnoreQueryFilters().SingleAsync(p => p.Id == eventPhoto.Id)).IsDeleted.Should().BeTrue();
+        var category = await db.PortfolioCategories.SingleAsync(c => c.Id == portraits.Id);
+        category.IsActive.Should().BeFalse();
+        category.Name.Should().Be("Редактирана категория");
     }
 
     private static async Task InvokeSeederAsync(string methodName, AppDbContext context)
