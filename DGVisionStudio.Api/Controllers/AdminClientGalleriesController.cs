@@ -47,7 +47,7 @@ public class AdminClientGalleriesController : ControllerBase
     public async Task<IActionResult> GetAllGalleries() =>
         this.ToActionResult(await _service.GetAllGalleriesAsync());
 
-    [HttpGet("download-all")]
+    [NonAction] // The route is owned by AdminClientGalleriesDownloadController.
     public async Task<IActionResult> DownloadAllAlbums()
     {
         var result = await _service.DownloadAllAlbumsAsync(this.CreateAdminRequestContext());
@@ -79,3 +79,4 @@ public class AdminClientGalleriesController : ControllerBase
     public async Task<IActionResult> DeleteGallery([FromRoute] int galleryId) =>
         this.ToActionResult(await _service.DeleteGalleryAsync(galleryId, this.CreateAdminRequestContext()));
 }
+
