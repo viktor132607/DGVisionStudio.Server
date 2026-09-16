@@ -53,6 +53,10 @@ public sealed class ProgramStartupIntegrationTests
             var health = await client.GetAsync("/api/health");
             var readiness = await client.GetAsync("/api/health/ready");
             var protectedEndpoint = await client.GetAsync("/api/admin/users?page=1&pageSize=10");
+            var publicServices = await client.GetAsync("/api/photography-pages");
+            var adminServices = await client.GetAsync("/api/admin/photography-pages");
+            publicServices.StatusCode.Should().Be(HttpStatusCode.OK);
+            adminServices.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
             health.StatusCode.Should().Be(HttpStatusCode.OK);
             readiness.StatusCode.Should().Be(HttpStatusCode.OK);

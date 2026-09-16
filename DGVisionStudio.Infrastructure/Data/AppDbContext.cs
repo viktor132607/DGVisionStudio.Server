@@ -12,6 +12,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 
 	public DbSet<ContactRequest> ContactRequests => Set<ContactRequest>();
 	public DbSet<EmailLog> EmailLogs => Set<EmailLog>();
+	public DbSet<PhotographyPage> PhotographyPages => Set<PhotographyPage>();
 	public DbSet<Service> Services => Set<Service>();
 	public DbSet<Testimonial> Testimonials => Set<Testimonial>();
 	public DbSet<PricingItem> PricingItems => Set<PricingItem>();
@@ -28,6 +29,16 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 	protected override void OnModelCreating(ModelBuilder builder)
 	{
 		base.OnModelCreating(builder);
+        builder.Entity<PhotographyPage>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Slug).HasMaxLength(150).IsRequired();
+            entity.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.TitleEn).HasMaxLength(200).IsRequired();
+            entity.HasIndex(x => x.Slug).IsUnique().HasFilter("\"IsDeleted\" = false");
+            entity.HasQueryFilter(x => !x.IsDeleted);
+            entity.HasOne(x => x.PortfolioCategory).WithMany().HasForeignKey(x => x.PortfolioCategoryId).OnDelete(DeleteBehavior.SetNull);
+        });
 
 		builder.Entity<ApplicationUser>()
 			.Property(x => x.IsBlocked)

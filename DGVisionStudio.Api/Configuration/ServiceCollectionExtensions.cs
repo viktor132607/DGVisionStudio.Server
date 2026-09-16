@@ -13,6 +13,7 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         StorageOptions storageOptions)
     {
+        services.AddScoped<PhotographyPageService>();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IPricingService, PricingService>();
 
