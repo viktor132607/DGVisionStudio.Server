@@ -196,6 +196,9 @@ public sealed class DatabaseBackupService
             LOOP EXECUTE format('DROP SCHEMA %I CASCADE', item.nspname); END LOOP;
             PERFORM lo_unlink(oid) FROM pg_largeobject_metadata;
         END $reset$;
+        -- pg_dump can omit the default public schema, assuming initdb created it.
+        CREATE SCHEMA public;
+        GRANT USAGE ON SCHEMA public TO PUBLIC;
         """;
 
     private async Task RunPostgresToolAsync(
