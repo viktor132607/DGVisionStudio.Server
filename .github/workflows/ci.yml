@@ -18,7 +18,7 @@ jobs:
           POSTGRES_PASSWORD: backup_test
         ports: ["5432:5432"]
         options: >-
-          --health-cmd pg_isready --health-interval 5s
+          --health-cmd "pg_isready -U postgres" --health-interval 5s
           --health-timeout 5s --health-retries 10
     env:
       BACKUP_TEST_CONNECTION: Host=localhost;Port=5432;Database=postgres;Username=postgres;Password=backup_test
@@ -33,7 +33,12 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Install PostgreSQL tools
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client-17
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-18
 
       - name: Restore
         run: dotnet restore
