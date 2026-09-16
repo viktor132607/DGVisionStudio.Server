@@ -95,6 +95,10 @@ builder.Services.AddDGVisionApplicationServices(storageOptions);
 
 var resolvedDatabaseConnection = DatabaseConnectionStringResolver.Resolve(builder.Configuration, builder.Environment);
 
+builder.Services.AddSingleton(sp => new DGVisionStudio.Api.Services.DatabaseBackupService(
+    resolvedDatabaseConnection.ConnectionString,
+    sp.GetRequiredService<ILogger<DGVisionStudio.Api.Services.DatabaseBackupService>>()));
+
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
 	options.UseNpgsql(resolvedDatabaseConnection.ConnectionString);
