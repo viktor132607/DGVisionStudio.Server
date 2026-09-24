@@ -90,6 +90,7 @@ public sealed class ClientGalleryAdminCommandRefactorTests
             NameEn = "Gallery",
             IsActive = true
         };
+        var owner = TestUsers.Create("owner@example.com", "owner-1");
         var album = new PortfolioAlbum
         {
             PortfolioCategory = category,
@@ -98,10 +99,10 @@ public sealed class ClientGalleryAdminCommandRefactorTests
             TitleEn = "Old title",
             GalleryType = GalleryType.ClientPrintUpload,
             IsUserUploaded = true,
-            OwnerUserId = "owner-1",
+            OwnerUserId = owner.Id,
             ExpiresAtUtc = DateTime.UtcNow.AddDays(1)
         };
-        fixture.Context.AddRange(category, album);
+        fixture.Context.AddRange(category, owner, album);
         await fixture.Context.SaveChangesAsync();
 
         var access = new StubClientGalleryAccessService();
