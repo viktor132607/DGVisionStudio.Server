@@ -109,7 +109,14 @@ public static class ServiceCollectionExtensions
 
         if (storageOptions.UseCloudinary)
         {
-            services.AddScoped<IFileStorageService, CloudinaryFileStorageService>();
+            services.AddScoped<ICloudinaryStorageClient, CloudinaryStorageClient>();
+            services.AddScoped<CloudinaryImageOptimizer>();
+            services.AddScoped<CloudinaryPathService>();
+            services.AddScoped<IFileStorageService>(serviceProvider =>
+                new CloudinaryFileStorageService(
+                    serviceProvider.GetRequiredService<ICloudinaryStorageClient>(),
+                    serviceProvider.GetRequiredService<CloudinaryImageOptimizer>(),
+                    serviceProvider.GetRequiredService<CloudinaryPathService>()));
         }
         else
         {
