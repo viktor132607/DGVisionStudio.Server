@@ -179,7 +179,16 @@ public static class ServiceCollectionExtensions
                 serviceProvider.GetRequiredService<ClientGalleryUserCreationService>(),
                 serviceProvider.GetRequiredService<ClientGalleryUserLifecycleService>()));
 
-        services.AddScoped<IClientGalleryAccessService, ClientGalleryAccessService>();
+        services.AddScoped<ClientGalleryAccessQueryService>();
+        services.AddScoped<ClientGalleryAccessGrantService>();
+        services.AddScoped<ClientGalleryAccessMutationService>();
+        services.AddScoped<ClientGalleryAccessSyncService>();
+        services.AddScoped<IClientGalleryAccessService>(serviceProvider =>
+            new ClientGalleryAccessService(
+                serviceProvider.GetRequiredService<ClientGalleryAccessQueryService>(),
+                serviceProvider.GetRequiredService<ClientGalleryAccessGrantService>(),
+                serviceProvider.GetRequiredService<ClientGalleryAccessMutationService>(),
+                serviceProvider.GetRequiredService<ClientGalleryAccessSyncService>()));
 
         services.AddScoped<ClientGalleryPhotoDownloadService>();
         services.AddScoped<ClientGalleryPhotoUploadService>();
