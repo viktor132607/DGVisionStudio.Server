@@ -154,7 +154,17 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IClientGalleryService, ClientGalleryService>();
 
         services.AddScoped<ClientGalleryAdminQueryService>();
-        services.AddScoped<ClientGalleryAdminCommandService>();
+        services.AddScoped<ClientGalleryAdminInputNormalizer>();
+        services.AddScoped<ClientGalleryAdminCategoryService>();
+        services.AddScoped<ClientGalleryAdminAlbumMapper>();
+        services.AddScoped<ClientGalleryAdminCreateService>();
+        services.AddScoped<ClientGalleryAdminUpdateService>();
+        services.AddScoped<ClientGalleryAdminLifecycleService>();
+        services.AddScoped<ClientGalleryAdminCommandService>(serviceProvider =>
+            new ClientGalleryAdminCommandService(
+                serviceProvider.GetRequiredService<ClientGalleryAdminCreateService>(),
+                serviceProvider.GetRequiredService<ClientGalleryAdminUpdateService>(),
+                serviceProvider.GetRequiredService<ClientGalleryAdminLifecycleService>()));
         services.AddScoped<IClientGalleryAdminService>(serviceProvider =>
             new ClientGalleryAdminService(
                 serviceProvider.GetRequiredService<ClientGalleryAdminQueryService>(),
