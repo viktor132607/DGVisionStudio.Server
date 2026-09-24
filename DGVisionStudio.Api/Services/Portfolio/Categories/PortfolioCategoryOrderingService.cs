@@ -69,7 +69,7 @@ public sealed class PortfolioCategoryOrderingService(
         await context.SaveChangesAsync();
     }
 
-    private static void ApplySequentialDisplayOrder(IReadOnlyList<Domain.Entities.PortfolioCategory> categories)
+    private static void ApplySequentialDisplayOrder(IReadOnlyList<DGVisionStudio.Domain.Entities.PortfolioCategory> categories)
     {
         for (var i = 0; i < categories.Count; i++)
             categories[i].DisplayOrder = i + 1;
