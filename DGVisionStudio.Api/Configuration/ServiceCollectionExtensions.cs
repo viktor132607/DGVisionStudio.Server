@@ -100,7 +100,13 @@ public static class ServiceCollectionExtensions
                 serviceProvider.GetRequiredService<AdminGalleryMediaUploadService>(),
                 serviceProvider.GetRequiredService<AdminGalleryMediaMutationService>()));
 
-        services.AddScoped<AdminPrintRequestQueryService>();
+        services.AddScoped<AdminPrintRequestMapper>();
+        services.AddScoped<AdminDirectPrintRequestQueryService>();
+        services.AddScoped<AdminUploadedPrintRequestQueryService>();
+        services.AddScoped<AdminPrintRequestQueryService>(serviceProvider =>
+            new AdminPrintRequestQueryService(
+                serviceProvider.GetRequiredService<AdminDirectPrintRequestQueryService>(),
+                serviceProvider.GetRequiredService<AdminUploadedPrintRequestQueryService>()));
         services.AddScoped<AdminPrintRequestCommandService>();
         services.AddScoped<IAdminPrintRequestService>(serviceProvider =>
             new AdminPrintRequestService(
