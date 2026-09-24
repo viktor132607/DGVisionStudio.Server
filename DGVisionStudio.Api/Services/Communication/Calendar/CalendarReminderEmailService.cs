@@ -1,35 +1,23 @@
-using System.Net;
-using DGVisionStudio.Application.Interfaces;
-using DGVisionStudio.Domain.Entities;
-using DGVisionStudio.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
-
 namespace DGVisionStudio.Infrastructure.Services;
 
-public class CalendarReminderEmailService : BackgroundService
+public sealed class CalendarReminderEmailService : BackgroundService
 {
     private static readonly TimeSpan CheckInterval = TimeSpan.FromMinutes(5);
-    private static readonly TimeSpan TwoHourReminderWindow = TimeSpan.FromHours(2);
-    private static readonly TimeSpan TwentyFourHourReminderWindow = TimeSpan.FromHours(24);
 
-    private const string BrandName = "DG Vision Studio";
-    private const string WebsiteUrl = "https://dgvisionstudio.com";
-    private const string LogoUrl = WebsiteUrl + "/images/relogo/black.webp";
-
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly ILogger<CalendarReminderEmailService> _logger;
+    private readonly IServiceScopeFactory scopeFactory;
+    private readonly ILogger<CalendarReminderEmailService> logger;
 
     public CalendarReminderEmailService(
         IServiceScopeFactory scopeFactory,
         ILogger<CalendarReminderEmailService> logger)
     {
-        _scopeFactory = scopeFactory;
-        _logger = logger;
+        this.scopeFactory = scopeFactory;
+        this.logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation(
+        logger.LogInformation(
             "Calendar reminder worker started. Check interval: {CheckIntervalMinutes} minutes.",
             CheckInterval.TotalMinutes);
 
@@ -37,7 +25,11 @@ public class CalendarReminderEmailService : BackgroundService
         {
             try
             {
-                await SendDueReminders(stoppingToken);
+                using var scope = scopeFactory.CreateScope();
+                var processor = scope.ServiceProvider
+                    .GetRequiredService<CalendarReminderProcessor>();
+
+                await processor.ProcessDueAsync(stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -45,7 +37,7 @@ public class CalendarReminderEmailService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Calendar reminder check failed.");
+                logger.LogError(ex, "Calendar reminder check failed.");
             }
 
             try
@@ -57,204 +49,5 @@ public class CalendarReminderEmailService : BackgroundService
                 return;
             }
         }
-    }
-
-    private async Task SendDueReminders(CancellationToken cancellationToken)
-    {
-        using var scope = _scopeFactory.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
-
-        var now = DateTime.UtcNow;
-        var twoHourWindowEnd = now.Add(TwoHourReminderWindow);
-        var twentyFourHourWindowEnd = now.Add(TwentyFourHourReminderWindow);
-
-        var events = await context.CalendarEvents
-            .Where(calendarEvent =>
-                calendarEvent.RemindersEnabled &&
-                calendarEvent.EventType == "Photoshoot" &&
-                calendarEvent.StartAtUtc > now &&
-                calendarEvent.ClientEmail != null &&
-                calendarEvent.ClientEmail != "" &&
-                (
-                    (calendarEvent.Reminder2hSentAtUtc == null &&
-                     calendarEvent.StartAtUtc <= twoHourWindowEnd) ||
-                    (calendarEvent.Reminder24hSentAtUtc == null &&
-                     calendarEvent.StartAtUtc > twoHourWindowEnd &&
-                     calendarEvent.StartAtUtc <= twentyFourHourWindowEnd)
-                ))
-            .OrderBy(calendarEvent => calendarEvent.StartAtUtc)
-            .ToListAsync(cancellationToken);
-
-        if (events.Count == 0)
-        {
-            _logger.LogDebug("Calendar reminder check completed with no due reminders.");
-            return;
-        }
-
-        _logger.LogInformation(
-            "Calendar reminder check found {ReminderCount} due reminder(s).",
-            events.Count);
-
-        foreach (var calendarEvent in events)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var isTwoHourReminder = calendarEvent.StartAtUtc <= twoHourWindowEnd;
-            var reminderType = isTwoHourReminder ? "2h" : "24h";
-            var sent = await TrySendReminder(
-                context,
-                emailService,
-                calendarEvent,
-                reminderType,
-                cancellationToken);
-
-            if (sent)
-            {
-                var sentAtUtc = DateTime.UtcNow;
-
-                if (isTwoHourReminder)
-                {
-                    calendarEvent.Reminder2hSentAtUtc = sentAtUtc;
-                }
-                else
-                {
-                    calendarEvent.Reminder24hSentAtUtc = sentAtUtc;
-                }
-            }
-
-            await context.SaveChangesAsync(cancellationToken);
-        }
-    }
-
-    private async Task<bool> TrySendReminder(
-        AppDbContext context,
-        IEmailService emailService,
-        CalendarEvent calendarEvent,
-        string reminderType,
-        CancellationToken cancellationToken)
-    {
-        var toEmail = calendarEvent.ClientEmail?.Trim();
-        if (string.IsNullOrWhiteSpace(toEmail))
-        {
-            return false;
-        }
-
-        var subject = reminderType == "24h"
-            ? "Напомняне за фотосесия утре"
-            : "Напомняне за фотосесия след 2 часа";
-
-        var body = string.Empty;
-
-        try
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var localStart = ConvertToSofiaTime(calendarEvent.StartAtUtc);
-            var safeClientName = WebUtility.HtmlEncode(calendarEvent.ClientName ?? string.Empty);
-            var safeTitle = WebUtility.HtmlEncode(calendarEvent.Title);
-            var safeLocation = WebUtility.HtmlEncode(calendarEvent.Location ?? "Търговски комплекс Ялта, Русе");
-            var safePhone = WebUtility.HtmlEncode(calendarEvent.ClientPhone ?? string.Empty);
-            var safeAssignedTo = WebUtility.HtmlEncode(calendarEvent.AssignedTo ?? BrandName);
-            var safeNotes = WebUtility.HtmlEncode(calendarEvent.Description ?? string.Empty).Replace("\n", "<br />");
-            var formattedDate = localStart.ToString("dd.MM.yyyy HH:mm");
-
-            body = $"""
-                <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111;line-height:1.6;">
-                    <h2 style="margin:0 0 16px;">Напомняне за фотосесия</h2>
-                    <p>Здравейте{(string.IsNullOrWhiteSpace(safeClientName) ? string.Empty : $", {safeClientName}")},</p>
-                    <p>Напомняме Ви за записания час за фотосесия:</p>
-                    <p><strong>Събитие:</strong> {safeTitle}</p>
-                    <p><strong>Дата и час:</strong> {formattedDate}</p>
-                    <p><strong>Локация:</strong> {safeLocation}</p>
-                    <p><strong>Екип:</strong> {safeAssignedTo}</p>
-                    {(string.IsNullOrWhiteSpace(safePhone) ? string.Empty : $"<p><strong>Телефон:</strong> {safePhone}</p>")}
-                    {(string.IsNullOrWhiteSpace(safeNotes) ? string.Empty : $"<p><strong>Бележки:</strong><br />{safeNotes}</p>")}
-                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;">
-                        <tr>
-                            <td>
-                                <p style="margin:0 0 12px;">Поздрави,<br /><strong>{BrandName}</strong></p>
-                                <a href="{WebsiteUrl}" target="_blank" style="display:inline-block;text-decoration:none;">
-                                    <img src="{LogoUrl}" width="180" alt="{BrandName}" style="display:block;width:180px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;" />
-                                </a>
-                            </td>
-                        </tr>
-                    </table>
-                </div>
-                """;
-
-            await emailService.SendAsync(toEmail, subject, body);
-
-            context.EmailLogs.Add(new EmailLog
-            {
-                Id = Guid.NewGuid(),
-                ContactRequestId = calendarEvent.ContactRequestId,
-                ToEmail = toEmail,
-                Subject = subject,
-                Body = body,
-                IsSent = true,
-                SentAtUtc = DateTime.UtcNow
-            });
-
-            _logger.LogInformation(
-                "Calendar {ReminderType} reminder sent for event {CalendarEventId} to {RecipientEmail}.",
-                reminderType,
-                calendarEvent.Id,
-                toEmail);
-
-            return true;
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            context.EmailLogs.Add(new EmailLog
-            {
-                Id = Guid.NewGuid(),
-                ContactRequestId = calendarEvent.ContactRequestId,
-                ToEmail = toEmail,
-                Subject = subject,
-                Body = body,
-                IsSent = false,
-                ErrorMessage = ex.Message
-            });
-
-            _logger.LogError(
-                ex,
-                "Calendar {ReminderType} reminder failed for event {CalendarEventId} and will be retried.",
-                reminderType,
-                calendarEvent.Id);
-
-            return false;
-        }
-    }
-
-    private DateTime ConvertToSofiaTime(DateTime startAtUtc)
-    {
-        var utcStart = DateTime.SpecifyKind(startAtUtc, DateTimeKind.Utc);
-
-        foreach (var timeZoneId in new[] { "Europe/Sofia", "FLE Standard Time" })
-        {
-            try
-            {
-                return TimeZoneInfo.ConvertTimeBySystemTimeZoneId(utcStart, timeZoneId);
-            }
-            catch (TimeZoneNotFoundException)
-            {
-                // Try the next platform-specific time-zone identifier.
-            }
-            catch (InvalidTimeZoneException)
-            {
-                // Try the next platform-specific time-zone identifier.
-            }
-        }
-
-        _logger.LogWarning(
-            "Sofia time zone was not available. Calendar reminder for {StartAtUtc} will display UTC time.",
-            utcStart);
-
-        return utcStart;
     }
 }

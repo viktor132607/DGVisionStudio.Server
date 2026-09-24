@@ -1,4 +1,3 @@
-using System.Reflection;
 using DGVisionStudio.Api.Services;
 using DGVisionStudio.Application.Interfaces;
 using DGVisionStudio.Domain.Entities;
@@ -159,7 +158,7 @@ public sealed class AdminCalendarServiceTests
 public sealed class CalendarReminderEmailServiceTests
 {
     [Fact]
-    public async Task SendDueReminders_SendsTwoHourReminderAndPersistsLog()
+    public async Task Processor_SendsTwoHourReminderAndPersistsLog()
     {
         await using var context = TestDbContextFactory.CreateContext();
         var calendarEvent = new CalendarEvent
@@ -174,19 +173,11 @@ public sealed class CalendarReminderEmailServiceTests
         };
         context.CalendarEvents.Add(calendarEvent);
         await context.SaveChangesAsync();
-        var email = new RecordingEmailService();
-        using var provider = new ServiceCollection()
-            .AddSingleton(context)
-            .AddSingleton<IEmailService>(email)
-            .BuildServiceProvider();
-        var worker = new CalendarReminderEmailService(
-            provider.GetRequiredService<IServiceScopeFactory>(),
-            NullLogger<CalendarReminderEmailService>.Instance);
-        var method = typeof(CalendarReminderEmailService).GetMethod(
-            "SendDueReminders",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        await (Task)method.Invoke(worker, [CancellationToken.None])!;
+        var email = new RecordingEmailService();
+        var processor = CalendarReminderTestFactory.CreateProcessor(context, email);
+
+        await processor.ProcessDueAsync();
 
         email.Messages.Should().ContainSingle();
         email.Messages.Single().Subject.Should().Contain("2 часа");

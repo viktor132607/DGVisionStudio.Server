@@ -172,6 +172,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ClientGalleryNamingService>();
 
         services.AddHostedService<ExpiredGalleryCleanupService>();
+        services.AddScoped<CalendarReminderDueQueryService>();
+        services.AddScoped<CalendarReminderMessageComposer>();
+        services.AddScoped<CalendarReminderDeliveryService>();
+        services.AddScoped<CalendarReminderProcessor>();
         services.AddHostedService<CalendarReminderEmailService>();
 
         return services;
