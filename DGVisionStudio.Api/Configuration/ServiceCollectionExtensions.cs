@@ -37,7 +37,17 @@ public static class ServiceCollectionExtensions
                 serviceProvider.GetRequiredService<AuthSessionService>(),
                 serviceProvider.GetRequiredService<AuthPasswordService>()));
 
-        services.AddScoped<PortfolioCategoryAdminService>();
+        services.AddScoped<PortfolioCategoryAuditService>();
+        services.AddScoped<PortfolioCategoryQueryService>();
+        services.AddScoped<PortfolioCategoryOrderingService>();
+        services.AddScoped<PortfolioCategoryAlbumAssignmentService>();
+        services.AddScoped<PortfolioCategoryCommandService>();
+        services.AddScoped<PortfolioCategoryAdminService>(serviceProvider =>
+            new PortfolioCategoryAdminService(
+                serviceProvider.GetRequiredService<PortfolioCategoryQueryService>(),
+                serviceProvider.GetRequiredService<PortfolioCategoryCommandService>(),
+                serviceProvider.GetRequiredService<PortfolioCategoryOrderingService>(),
+                serviceProvider.GetRequiredService<PortfolioCategoryAlbumAssignmentService>()));
         services.AddScoped<PortfolioAlbumAdminService>();
         services.AddScoped<PortfolioImageAdminService>();
         services.AddScoped<IAdminPortfolioService>(serviceProvider =>
