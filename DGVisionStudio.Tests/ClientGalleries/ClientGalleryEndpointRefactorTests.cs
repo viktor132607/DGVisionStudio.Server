@@ -23,7 +23,7 @@ public sealed class ClientGalleryEndpointRefactorTests
 
         var missing = await new ClientGalleryEndpointUserContextService(
                 new TestUserManager(null))
-            .ResolveAsync(new System.Security.Claims.ClaimsPrincipal());
+            .ResolveAsync(new global::System.Security.Claims.ClaimsPrincipal());
 
         resolved.Should().BeSameAs(user);
         missing.Should().BeNull();
