@@ -38,7 +38,16 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<AuthRegistrationService>();
         services.AddScoped<AuthSessionService>();
-        services.AddScoped<AuthPasswordService>();
+        services.AddScoped<AuthPasswordResetLinkService>();
+        services.AddScoped<AuthForgotPasswordService>();
+        services.AddScoped<AuthResetPasswordService>();
+        services.AddScoped<AuthChangePasswordService>();
+        services.AddScoped<AuthPasswordService>(serviceProvider =>
+            new AuthPasswordService(
+                serviceProvider.GetRequiredService<AuthForgotPasswordService>(),
+                serviceProvider.GetRequiredService<AuthPasswordResetLinkService>(),
+                serviceProvider.GetRequiredService<AuthResetPasswordService>(),
+                serviceProvider.GetRequiredService<AuthChangePasswordService>()));
         services.AddScoped<IAuthService>(serviceProvider =>
             new AuthService(
                 serviceProvider.GetRequiredService<AuthRegistrationService>(),
