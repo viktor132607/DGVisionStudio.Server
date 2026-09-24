@@ -134,7 +134,15 @@ public static class ServiceCollectionExtensions
                 serviceProvider.GetRequiredService<AdminUserSeenService>(),
                 serviceProvider.GetRequiredService<AdminUserRoleService>(),
                 serviceProvider.GetRequiredService<AdminUserAccountService>()));
-        services.AddScoped<IClientGalleryEndpointService, ClientGalleryEndpointService>();
+        services.AddScoped<ClientGalleryEndpointUserContextService>();
+        services.AddScoped<ClientGalleryUserEndpointService>();
+        services.AddScoped<ClientGalleryPhotoDownloadEndpointService>();
+        services.AddScoped<ClientGalleryZipDownloadService>();
+        services.AddScoped<IClientGalleryEndpointService>(serviceProvider =>
+            new ClientGalleryEndpointService(
+                serviceProvider.GetRequiredService<ClientGalleryUserEndpointService>(),
+                serviceProvider.GetRequiredService<ClientGalleryPhotoDownloadEndpointService>(),
+                serviceProvider.GetRequiredService<ClientGalleryZipDownloadService>()));
         services.AddScoped<IAdminCalendarService, AdminCalendarService>();
         services.AddScoped<ContactRequestInputValidator>();
         services.AddScoped<ContactRequestFactory>();
