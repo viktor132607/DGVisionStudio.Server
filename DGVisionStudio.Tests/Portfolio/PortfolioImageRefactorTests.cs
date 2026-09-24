@@ -70,11 +70,8 @@ public sealed class PortfolioImageRefactorTests
         var normalAlbum = Album(category, "normal", false);
         var userAlbum = Album(category, "user", true);
 
-        normalAlbum.Images.AddRange(
-        [
-            Image("/one.jpg", 1),
-            Image("/two.jpg", 2)
-        ]);
+        normalAlbum.Images.Add(Image("/one.jpg", 1));
+        normalAlbum.Images.Add(Image("/two.jpg", 2));
         userAlbum.Images.Add(Image("/user.jpg", 1));
 
         fixture.Context.AddRange(category, normalAlbum, userAlbum);
