@@ -194,7 +194,13 @@ public static class ServiceCollectionExtensions
         }
         else
         {
-            services.AddScoped<IFileStorageService, FileStorageService>();
+            services.AddScoped<FileStoragePathService>();
+            services.AddScoped<FileStorageFileService>();
+            services.AddScoped<FileStorageImageService>();
+            services.AddScoped<IFileStorageService>(serviceProvider =>
+                new FileStorageService(
+                    serviceProvider.GetRequiredService<FileStorageFileService>(),
+                    serviceProvider.GetRequiredService<FileStorageImageService>()));
         }
 
         services.AddScoped<IAuditLogService, AuditLogService>();
