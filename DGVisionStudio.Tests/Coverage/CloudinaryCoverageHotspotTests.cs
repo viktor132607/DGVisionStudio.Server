@@ -1,4 +1,3 @@
-using System.Reflection;
 using DGVisionStudio.Infrastructure.Services;
 using DGVisionStudio.Tests.TestSupport;
 using FluentAssertions;
@@ -45,22 +44,31 @@ public sealed class CloudinaryFileStorageCoverageTests
     [InlineData("https://example.com/uploads/portfolio/albums", "portfolio/albums")]
     [InlineData("uploads\\portfolio\\albums", "portfolio/albums")]
     [InlineData(" ", "")]
-    public void NormalizeCloudinaryFolder_HandlesUrlsSlashesAndEmptyValues(string input, string expected)
+    public void NormalizeCloudinaryFolder_HandlesUrlsSlashesAndEmptyValues(
+        string input,
+        string expected)
     {
-        InvokeStatic<string>("NormalizeCloudinaryFolder", input).Should().Be(expected);
+        var paths = new CloudinaryPathService("root");
+
+        var result = paths.BuildPublicId(input, "photo");
+
+        var expectedPrefix = string.IsNullOrEmpty(expected)
+            ? "root/photo-"
+            : $"root/{expected}/photo-";
+
+        result.Should().StartWith(expectedPrefix);
     }
 
     [Theory]
-    [InlineData("  My.File_Name  ", "my-file-name")]
-    [InlineData("---", null)]
-    public void SanitizePublicId_NormalizesNamesAndFallsBackForEmptyResults(string input, string? expected)
+    [InlineData("  My.File_Name  ", "^root/my-file-name-[a-f0-9]{32}$")]
+    [InlineData("---", "^root/[a-f0-9]{32}-[a-f0-9]{32}$")]
+    public void SanitizePublicId_NormalizesNamesAndFallsBackForEmptyResults(
+        string input,
+        string expectedPattern)
     {
-        var result = InvokeStatic<string>("SanitizePublicId", input);
+        var paths = new CloudinaryPathService("root");
 
-        if (expected is null)
-            result.Should().MatchRegex("^[a-f0-9]{32}$");
-        else
-            result.Should().Be(expected);
+        paths.BuildPublicId("", input).Should().MatchRegex(expectedPattern);
     }
 
     [Theory]
@@ -71,12 +79,9 @@ public sealed class CloudinaryFileStorageCoverageTests
         string input,
         string expected)
     {
-        var service = CreateService();
-        var method = typeof(CloudinaryFileStorageService).GetMethod(
-            "ExtractPublicId",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var paths = new CloudinaryPathService("root");
 
-        method.Invoke(service, [input]).Should().Be(expected);
+        paths.ExtractPublicId(input).Should().Be(expected);
     }
 
     [Fact]
@@ -87,14 +92,14 @@ public sealed class CloudinaryFileStorageCoverageTests
         await image.SaveAsPngAsync(source);
         source.Position = 0;
 
-        var method = typeof(CloudinaryFileStorageService).GetMethod(
-            "OptimizeImageForCloudinaryAsync",
-            BindingFlags.Static | BindingFlags.NonPublic)!;
-        var task = (Task<MemoryStream>)method.Invoke(
-            null,
-            [source, 1200, 82, CancellationToken.None])!;
+        var optimizer = new CloudinaryImageOptimizer();
 
-        await using var optimizedStream = await task;
+        await using var optimizedStream = await optimizer.OptimizeAsync(
+            source,
+            1200,
+            82,
+            CancellationToken.None);
+
         optimizedStream.Length.Should().BeLessThanOrEqualTo(9 * 1024 * 1024);
         optimizedStream.Position = 0;
 
@@ -108,12 +113,4 @@ public sealed class CloudinaryFileStorageCoverageTests
             ("Cloudinary:ApiKey", "test-key"),
             ("Cloudinary:ApiSecret", "test-secret"),
             ("Cloudinary:Folder", " /dgvisionstudio/portfolio/ ")));
-
-    private static T InvokeStatic<T>(string methodName, params object?[] arguments)
-    {
-        var method = typeof(CloudinaryFileStorageService).GetMethod(
-            methodName,
-            BindingFlags.Static | BindingFlags.NonPublic)!;
-        return (T)method.Invoke(null, arguments)!;
-    }
 }
