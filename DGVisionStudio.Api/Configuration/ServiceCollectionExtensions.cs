@@ -135,7 +135,21 @@ public static class ServiceCollectionExtensions
                 serviceProvider.GetRequiredService<AdminUserAccountService>()));
         services.AddScoped<IClientGalleryEndpointService, ClientGalleryEndpointService>();
         services.AddScoped<IAdminCalendarService, AdminCalendarService>();
-        services.AddScoped<IContactRequestService, ContactRequestService>();
+        services.AddScoped<ContactRequestInputValidator>();
+        services.AddScoped<ContactRequestFactory>();
+        services.AddScoped<ContactRequestNotificationService>(serviceProvider =>
+            new ContactRequestNotificationService(
+                serviceProvider.GetRequiredService<AppDbContext>(),
+                serviceProvider.GetRequiredService<IEmailService>(),
+                serviceProvider.GetRequiredService<IConfiguration>()));
+        services.AddScoped<ContactRequestSubmissionService>();
+        services.AddScoped<ContactRequestQueryService>();
+        services.AddScoped<ContactRequestAdminCommandService>();
+        services.AddScoped<IContactRequestService>(serviceProvider =>
+            new ContactRequestService(
+                serviceProvider.GetRequiredService<ContactRequestSubmissionService>(),
+                serviceProvider.GetRequiredService<ContactRequestQueryService>(),
+                serviceProvider.GetRequiredService<ContactRequestAdminCommandService>()));
         services.AddScoped<IServiceCatalogService, ServiceCatalogService>();
         services.AddScoped<IPortfolioQueryService, PortfolioQueryService>();
         services.AddScoped<IAdminStatisticsService, AdminStatisticsService>();
