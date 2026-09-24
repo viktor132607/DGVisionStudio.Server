@@ -3,6 +3,7 @@ using DGVisionStudio.Api.Services.Interfaces;
 using DGVisionStudio.Application.Interfaces;
 using DGVisionStudio.Infrastructure.Services;
 using DGVisionStudio.Infrastructure.Services.ClientGalleries;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DGVisionStudio.Api.Configuration;
@@ -111,7 +112,9 @@ public static class ServiceCollectionExtensions
         {
             services.AddScoped<ICloudinaryStorageClient, CloudinaryStorageClient>();
             services.AddScoped<CloudinaryImageOptimizer>();
-            services.AddScoped<CloudinaryPathService>();
+            services.AddScoped<CloudinaryPathService>(serviceProvider =>
+                new CloudinaryPathService(
+                    serviceProvider.GetRequiredService<IConfiguration>()));
             services.AddScoped<IFileStorageService>(serviceProvider =>
                 new CloudinaryFileStorageService(
                     serviceProvider.GetRequiredService<ICloudinaryStorageClient>(),
