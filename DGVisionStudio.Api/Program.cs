@@ -95,8 +95,15 @@ builder.Services.AddDGVisionApplicationServices(storageOptions);
 
 var resolvedDatabaseConnection = DatabaseConnectionStringResolver.Resolve(builder.Configuration, builder.Environment);
 
-builder.Services.AddSingleton(sp => new DGVisionStudio.Api.Services.DatabaseBackupService(
+builder.Services.AddSingleton(sp => new DGVisionStudio.Api.Services.PostgresToolRunner(
     resolvedDatabaseConnection.ConnectionString,
+    sp.GetRequiredService<ILogger<DGVisionStudio.Api.Services.PostgresToolRunner>>()));
+builder.Services.AddSingleton<DGVisionStudio.Api.Services.DatabaseBackupArchiveValidator>();
+builder.Services.AddSingleton<DGVisionStudio.Api.Services.DatabaseBackupTempFileManager>();
+builder.Services.AddSingleton(sp => new DGVisionStudio.Api.Services.DatabaseBackupService(
+    sp.GetRequiredService<DGVisionStudio.Api.Services.PostgresToolRunner>(),
+    sp.GetRequiredService<DGVisionStudio.Api.Services.DatabaseBackupArchiveValidator>(),
+    sp.GetRequiredService<DGVisionStudio.Api.Services.DatabaseBackupTempFileManager>(),
     sp.GetRequiredService<ILogger<DGVisionStudio.Api.Services.DatabaseBackupService>>()));
 
 builder.Services.AddDbContext<AppDbContext>(options =>
