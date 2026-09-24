@@ -11,17 +11,32 @@ public sealed class CloudinaryStorageRefactorTests
     [InlineData("uploads/client-galleries", "client-galleries")]
     [InlineData("/uploads/portfolio/", "portfolio")]
     [InlineData("", "")]
-    public void PathService_NormalizesFolders(string input, string expected)
+    public void PathService_NormalizesFoldersThroughPublicIdGeneration(
+        string input,
+        string expected)
     {
-        CloudinaryPathService.NormalizeFolder(input).Should().Be(expected);
+        var paths = new CloudinaryPathService("root");
+
+        var result = paths.BuildPublicId(input, "photo");
+
+        var expectedPrefix = string.IsNullOrEmpty(expected)
+            ? "root/photo-"
+            : $"root/{expected}/photo-";
+        result.Should().StartWith(expectedPrefix);
     }
 
     [Theory]
     [InlineData(" My_Photo.Name ", "my-photo-name")]
     [InlineData("already-clean", "already-clean")]
-    public void PathService_SanitizesPublicIdNames(string input, string expected)
+    public void PathService_SanitizesNamesThroughPublicIdGeneration(
+        string input,
+        string expected)
     {
-        CloudinaryPathService.SanitizePublicId(input).Should().Be(expected);
+        var paths = new CloudinaryPathService("root");
+
+        var result = paths.BuildPublicId("", input);
+
+        result.Should().StartWith($"root/{expected}-");
     }
 
     [Theory]
