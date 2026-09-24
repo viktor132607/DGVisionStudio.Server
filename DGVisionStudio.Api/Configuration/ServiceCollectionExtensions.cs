@@ -107,7 +107,17 @@ public static class ServiceCollectionExtensions
                 serviceProvider.GetRequiredService<AdminClientGalleryCommandService>(),
                 serviceProvider.GetRequiredService<AdminClientGalleryExportService>()));
 
-        services.AddScoped<IAdminUserService, AdminUserService>();
+        services.AddScoped<AdminUserProtectedAccountPolicy>();
+        services.AddScoped<AdminUserQueryService>();
+        services.AddScoped<AdminUserSeenService>();
+        services.AddScoped<AdminUserRoleService>();
+        services.AddScoped<AdminUserAccountService>();
+        services.AddScoped<IAdminUserService>(serviceProvider =>
+            new AdminUserService(
+                serviceProvider.GetRequiredService<AdminUserQueryService>(),
+                serviceProvider.GetRequiredService<AdminUserSeenService>(),
+                serviceProvider.GetRequiredService<AdminUserRoleService>(),
+                serviceProvider.GetRequiredService<AdminUserAccountService>()));
         services.AddScoped<IClientGalleryEndpointService, ClientGalleryEndpointService>();
         services.AddScoped<IAdminCalendarService, AdminCalendarService>();
         services.AddScoped<IContactRequestService, ContactRequestService>();
