@@ -65,7 +65,15 @@ public static class ServiceCollectionExtensions
             new PortfolioAlbumAdminService(
                 serviceProvider.GetRequiredService<PortfolioAlbumQueryService>(),
                 serviceProvider.GetRequiredService<PortfolioAlbumCommandService>()));
-        services.AddScoped<PortfolioImageAdminService>();
+        services.AddScoped<PortfolioImageAuditService>();
+        services.AddScoped<PortfolioImageInputValidator>();
+        services.AddScoped<PortfolioImageMapper>();
+        services.AddScoped<PortfolioImageQueryService>();
+        services.AddScoped<PortfolioImageCommandService>();
+        services.AddScoped<PortfolioImageAdminService>(serviceProvider =>
+            new PortfolioImageAdminService(
+                serviceProvider.GetRequiredService<PortfolioImageQueryService>(),
+                serviceProvider.GetRequiredService<PortfolioImageCommandService>()));
         services.AddScoped<IAdminPortfolioService>(serviceProvider =>
             new AdminPortfolioService(
                 serviceProvider.GetRequiredService<PortfolioCategoryAdminService>(),
