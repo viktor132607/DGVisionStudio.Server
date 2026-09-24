@@ -211,7 +211,16 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<ClientGalleryPhotoDownloadService>();
         services.AddScoped<ClientGalleryPhotoUploadService>();
-        services.AddScoped<ClientGalleryPhotoMutationService>();
+        services.AddScoped<ClientGalleryPhotoCoverService>();
+        services.AddScoped<ClientGalleryPhotoUpdateService>();
+        services.AddScoped<ClientGalleryPhotoDeleteService>();
+        services.AddScoped<ClientGalleryPhotoReorderService>();
+        services.AddScoped<ClientGalleryPhotoMutationService>(serviceProvider =>
+            new ClientGalleryPhotoMutationService(
+                serviceProvider.GetRequiredService<ClientGalleryPhotoUpdateService>(),
+                serviceProvider.GetRequiredService<ClientGalleryPhotoDeleteService>(),
+                serviceProvider.GetRequiredService<ClientGalleryPhotoCoverService>(),
+                serviceProvider.GetRequiredService<ClientGalleryPhotoReorderService>()));
         services.AddScoped<IClientGalleryPhotoService>(serviceProvider =>
             new ClientGalleryPhotoService(
                 serviceProvider.GetRequiredService<ClientGalleryPhotoDownloadService>(),
