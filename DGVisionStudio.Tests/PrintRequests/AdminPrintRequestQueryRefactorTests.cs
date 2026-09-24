@@ -74,6 +74,9 @@ public sealed class AdminPrintRequestQueryRefactorTests
         await using var context =
             TestDbContextFactory.CreateContext();
 
+        var user = TestUsers.Create(
+            "client@example.com",
+            "client-1");
         var album = new PortfolioAlbum
         {
             Title = "Album",
@@ -87,9 +90,11 @@ public sealed class AdminPrintRequestQueryRefactorTests
 
         var request = new PrintRequest
         {
+            User = user,
+            UserId = user.Id,
             PortfolioAlbum = album,
             FullName = "Client",
-            Email = "client@example.com",
+            Email = user.Email!,
             Items =
             {
                 new PrintRequestItem
@@ -101,7 +106,7 @@ public sealed class AdminPrintRequestQueryRefactorTests
             }
         };
 
-        context.PrintRequests.Add(request);
+        context.AddRange(user, request);
         await context.SaveChangesAsync();
 
         var service = new AdminDirectPrintRequestQueryService(
@@ -158,6 +163,9 @@ public sealed class AdminPrintRequestQueryRefactorTests
         await using var context =
             TestDbContextFactory.CreateContext();
 
+        var user = TestUsers.Create(
+            "client@example.com",
+            "client-1");
         var directAlbum = new PortfolioAlbum
         {
             Title = "Direct",
@@ -165,9 +173,11 @@ public sealed class AdminPrintRequestQueryRefactorTests
         };
         var direct = new PrintRequest
         {
+            User = user,
+            UserId = user.Id,
             PortfolioAlbum = directAlbum,
             FullName = "Client",
-            Email = "client@example.com",
+            Email = user.Email!,
             CreatedAtUtc = DateTime.UtcNow.AddMinutes(-10)
         };
         var uploaded = new PortfolioAlbum
@@ -179,7 +189,7 @@ public sealed class AdminPrintRequestQueryRefactorTests
             CreatedAtUtc = DateTime.UtcNow
         };
 
-        context.AddRange(direct, uploaded);
+        context.AddRange(user, direct, uploaded);
         await context.SaveChangesAsync();
 
         var mapper = new AdminPrintRequestMapper();
