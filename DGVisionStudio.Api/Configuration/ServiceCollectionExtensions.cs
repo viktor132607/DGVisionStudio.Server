@@ -27,7 +27,14 @@ public static class ServiceCollectionExtensions
                 serviceProvider.GetRequiredService<HomeSlideshowSettingsService>(),
                 serviceProvider.GetRequiredService<HomeSlideshowVideoService>()));
 
-        services.AddScoped<IPrivacyService, PrivacyService>();
+        services.AddScoped<PrivacyExportMapper>();
+        services.AddScoped<PrivacyExportQueryService>();
+        services.AddScoped<PrivacyAnonymizationMapper>();
+        services.AddScoped<PrivacyAnonymizationService>();
+        services.AddScoped<IPrivacyService>(serviceProvider =>
+            new PrivacyService(
+                serviceProvider.GetRequiredService<PrivacyExportQueryService>(),
+                serviceProvider.GetRequiredService<PrivacyAnonymizationService>()));
 
         services.AddScoped<AuthRegistrationService>();
         services.AddScoped<AuthSessionService>();
