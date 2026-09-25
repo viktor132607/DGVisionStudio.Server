@@ -218,7 +218,15 @@ public static class ServiceCollectionExtensions
                 serviceProvider.GetRequiredService<PortfolioArchiveZipWriter>(),
                 serviceProvider.GetRequiredService<PortfolioArchiveVerifier>()));
         services.AddScoped<PortfolioAlbumBulkService>();
-        services.AddSingleton<PortfolioArchiveJobs>();
+        services.AddSingleton<PortfolioArchiveJobQueue>();
+        services.AddSingleton<PortfolioArchiveJobFileService>();
+        services.AddSingleton<PortfolioArchiveJobRegistry>();
+        services.AddSingleton<PortfolioArchiveJobProcessor>();
+        services.AddSingleton<PortfolioArchiveJobs>(serviceProvider =>
+            new PortfolioArchiveJobs(
+                serviceProvider.GetRequiredService<PortfolioArchiveJobQueue>(),
+                serviceProvider.GetRequiredService<PortfolioArchiveJobRegistry>(),
+                serviceProvider.GetRequiredService<PortfolioArchiveJobProcessor>()));
         services.AddHostedService(sp => sp.GetRequiredService<PortfolioArchiveJobs>());
         services.AddScoped<AdminGalleryAccessQueryService>();
         services.AddScoped<AdminGalleryAccessMutationService>();
