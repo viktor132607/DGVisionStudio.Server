@@ -90,16 +90,37 @@ public sealed class ClientPrintRequestEndpointRefactorTests
     public async Task QueryService_ReturnsOnlyCurrentUsersRequestsInDescendingOrder()
     {
         await using var context = TestDbContextFactory.CreateContext();
-        var mineOld = Request("user-1", "old@example.com", 1);
+        var user = TestUsers.Create("client@example.com", "user-1");
+        var otherUser = TestUsers.Create("other@example.com", "user-2");
+        var category = new PortfolioCategory
+        {
+            Key = "query-tests",
+            Name = "Query Tests",
+            NameEn = "Query Tests"
+        };
+        var album = new PortfolioAlbum
+        {
+            PortfolioCategory = category,
+            Slug = "query-album",
+            Title = "Query Album"
+        };
+        var mineOld = Request(user, "old@example.com", album);
         mineOld.CreatedAtUtc = new DateTime(
             2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        var mineNew = Request("user-1", "new@example.com", 1);
+        var mineNew = Request(user, "new@example.com", album);
         mineNew.CreatedAtUtc = new DateTime(
             2026, 2, 1, 0, 0, 0, DateTimeKind.Utc);
-        var other = Request("user-2", "other@example.com", 1);
+        var other = Request(otherUser, "other@example.com", album);
         other.CreatedAtUtc = new DateTime(
             2026, 3, 1, 0, 0, 0, DateTimeKind.Utc);
-        context.PrintRequests.AddRange(mineOld, mineNew, other);
+        context.AddRange(
+            user,
+            otherUser,
+            category,
+            album,
+            mineOld,
+            mineNew,
+            other);
         await context.SaveChangesAsync();
 
         var service = new ClientPrintRequestQueryService(
@@ -108,8 +129,7 @@ public sealed class ClientPrintRequestEndpointRefactorTests
             new ClientPrintRequestMapper());
 
         var result = await service.GetMineAsync(
-            TestUsers.CreatePrincipal(
-                TestUsers.Create("client@example.com", "user-1")));
+            TestUsers.CreatePrincipal(user));
 
         result.StatusCode.Should().Be(StatusCodes.Status200OK);
         result.Value.Should()
@@ -220,13 +240,14 @@ public sealed class ClientPrintRequestEndpointRefactorTests
     }
 
     private static PrintRequest Request(
-        string userId,
+        ApplicationUser user,
         string email,
-        int albumId) =>
+        PortfolioAlbum album) =>
         new()
         {
-            UserId = userId,
-            PortfolioAlbumId = albumId,
+            User = user,
+            UserId = user.Id,
+            PortfolioAlbum = album,
             FullName = "Client",
             Email = email,
             Status = "New"
