@@ -99,7 +99,13 @@ public static class ServiceCollectionExtensions
             new AdminGalleryMediaUploadService(
                 serviceProvider.GetRequiredService<AdminGalleryPhotoUploadService>(),
                 serviceProvider.GetRequiredService<AdminGalleryVideoUploadService>()));
-        services.AddScoped<AdminGalleryMediaMutationService>();
+        services.AddScoped<AdminGalleryMutationAuditService>();
+        services.AddScoped<AdminGalleryPhotoMutationService>();
+        services.AddScoped<AdminGalleryArrangementMutationService>();
+        services.AddScoped<AdminGalleryMediaMutationService>(serviceProvider =>
+            new AdminGalleryMediaMutationService(
+                serviceProvider.GetRequiredService<AdminGalleryPhotoMutationService>(),
+                serviceProvider.GetRequiredService<AdminGalleryArrangementMutationService>()));
         services.AddScoped<IAdminGalleryMediaManagementService>(serviceProvider =>
             new AdminGalleryMediaManagementService(
                 serviceProvider.GetRequiredService<AdminGalleryMediaMetadataService>(),
