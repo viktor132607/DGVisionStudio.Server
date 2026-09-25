@@ -55,7 +55,7 @@ public sealed class PortfolioArchiveNameService
 
         var cleaned = new string(raw
             .Select(c =>
-                char.IsControl(c) || "<>:"/\\|?*".Contains(c)
+                char.IsControl(c) || "<>:\"/\\|?*".Contains(c)
                     ? '-'
                     : c)
             .ToArray())
