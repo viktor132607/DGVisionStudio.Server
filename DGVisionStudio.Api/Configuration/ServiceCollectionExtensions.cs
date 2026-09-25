@@ -179,7 +179,14 @@ public static class ServiceCollectionExtensions
                 serviceProvider.GetRequiredService<ContactRequestSubmissionService>(),
                 serviceProvider.GetRequiredService<ContactRequestQueryService>(),
                 serviceProvider.GetRequiredService<ContactRequestAdminCommandService>()));
-        services.AddScoped<IServiceCatalogService, ServiceCatalogService>();
+        services.AddScoped<ServiceCatalogQueryService>();
+        services.AddScoped<ServiceCatalogInputService>();
+        services.AddScoped<ServiceCatalogOrderingService>();
+        services.AddScoped<ServiceCatalogCommandService>();
+        services.AddScoped<IServiceCatalogService>(serviceProvider =>
+            new ServiceCatalogService(
+                serviceProvider.GetRequiredService<ServiceCatalogQueryService>(),
+                serviceProvider.GetRequiredService<ServiceCatalogCommandService>()));
         services.AddScoped<IPortfolioQueryService, PortfolioQueryService>();
         services.AddScoped<IAdminStatisticsService, AdminStatisticsService>();
         services.AddScoped<ITestimonialService, TestimonialService>();

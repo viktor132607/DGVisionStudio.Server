@@ -26,7 +26,8 @@ public sealed class ServiceRegistrationTests
             typeof(IAdminClientGalleryManagementService),
             typeof(IClientGalleryAdminService),
             typeof(IClientGalleryUserService),
-            typeof(IClientGalleryPhotoService)
+            typeof(IClientGalleryPhotoService),
+            typeof(IServiceCatalogService)
         };
 
         foreach (var serviceType in facadeTypes)
