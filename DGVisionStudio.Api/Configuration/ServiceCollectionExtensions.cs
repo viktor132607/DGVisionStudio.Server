@@ -38,7 +38,12 @@ public static class ServiceCollectionExtensions
                 serviceProvider.GetRequiredService<PrivacyAnonymizationService>()));
 
         services.AddScoped<AuthRegistrationService>();
-        services.AddScoped<AuthSessionService>();
+        services.AddScoped<AuthLoginService>();
+        services.AddScoped<AuthSessionStateService>();
+        services.AddScoped<AuthSessionService>(serviceProvider =>
+            new AuthSessionService(
+                serviceProvider.GetRequiredService<AuthLoginService>(),
+                serviceProvider.GetRequiredService<AuthSessionStateService>()));
         services.AddScoped<AuthPasswordResetLinkService>();
         services.AddScoped<AuthForgotPasswordService>();
         services.AddScoped<AuthResetPasswordService>();
