@@ -182,7 +182,16 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAccountEndpointService, AccountEndpointService>();
         services.AddScoped<IAdminAuditLogQueryService, AdminAuditLogQueryService>();
         services.AddScoped<IAdminGalleryArchiveService, AdminGalleryArchiveService>();
-        services.AddScoped<PortfolioArchiveBuilder>();
+        services.AddScoped<PortfolioArchiveSelectionService>();
+        services.AddScoped<PortfolioArchiveNameService>();
+        services.AddScoped<PortfolioArchivePhotoWriter>();
+        services.AddScoped<PortfolioArchiveVerifier>();
+        services.AddScoped<PortfolioArchiveBuilder>(serviceProvider =>
+            new PortfolioArchiveBuilder(
+                serviceProvider.GetRequiredService<PortfolioArchiveSelectionService>(),
+                serviceProvider.GetRequiredService<PortfolioArchiveNameService>(),
+                serviceProvider.GetRequiredService<PortfolioArchivePhotoWriter>(),
+                serviceProvider.GetRequiredService<PortfolioArchiveVerifier>()));
         services.AddScoped<PortfolioAlbumBulkService>();
         services.AddSingleton<PortfolioArchiveJobs>();
         services.AddHostedService(sp => sp.GetRequiredService<PortfolioArchiveJobs>());
