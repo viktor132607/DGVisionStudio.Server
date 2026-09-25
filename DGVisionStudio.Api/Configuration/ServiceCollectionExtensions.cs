@@ -120,7 +120,14 @@ public static class ServiceCollectionExtensions
             new AdminPrintRequestQueryService(
                 serviceProvider.GetRequiredService<AdminDirectPrintRequestQueryService>(),
                 serviceProvider.GetRequiredService<AdminUploadedPrintRequestQueryService>()));
-        services.AddScoped<AdminPrintRequestCommandService>();
+        services.AddScoped<AdminPrintRequestStatusService>();
+        services.AddScoped<AdminPrintRequestSeenService>();
+        services.AddScoped<AdminPrintRequestDeletionService>();
+        services.AddScoped<AdminPrintRequestCommandService>(serviceProvider =>
+            new AdminPrintRequestCommandService(
+                serviceProvider.GetRequiredService<AdminPrintRequestStatusService>(),
+                serviceProvider.GetRequiredService<AdminPrintRequestSeenService>(),
+                serviceProvider.GetRequiredService<AdminPrintRequestDeletionService>()));
         services.AddScoped<IAdminPrintRequestService>(serviceProvider =>
             new AdminPrintRequestService(
                 serviceProvider.GetRequiredService<AdminPrintRequestQueryService>(),
