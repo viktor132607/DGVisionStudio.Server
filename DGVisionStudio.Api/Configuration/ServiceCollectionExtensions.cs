@@ -185,12 +185,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PortfolioArchiveSelectionService>();
         services.AddScoped<PortfolioArchiveNameService>();
         services.AddScoped<PortfolioArchivePhotoWriter>();
+        services.AddScoped<PortfolioArchiveZipWriter>();
         services.AddScoped<PortfolioArchiveVerifier>();
         services.AddScoped<PortfolioArchiveBuilder>(serviceProvider =>
             new PortfolioArchiveBuilder(
                 serviceProvider.GetRequiredService<PortfolioArchiveSelectionService>(),
-                serviceProvider.GetRequiredService<PortfolioArchiveNameService>(),
-                serviceProvider.GetRequiredService<PortfolioArchivePhotoWriter>(),
+                serviceProvider.GetRequiredService<PortfolioArchiveZipWriter>(),
                 serviceProvider.GetRequiredService<PortfolioArchiveVerifier>()));
         services.AddScoped<PortfolioAlbumBulkService>();
         services.AddSingleton<PortfolioArchiveJobs>();
