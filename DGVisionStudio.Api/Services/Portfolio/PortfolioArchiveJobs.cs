@@ -18,11 +18,6 @@ public sealed record ArchiveJobStatus(
 public sealed class PortfolioArchiveJobs :
     BackgroundService
 {
-    private sealed record Components(
-        PortfolioArchiveJobQueue Queue,
-        PortfolioArchiveJobRegistry Registry,
-        PortfolioArchiveJobProcessor Processor);
-
     private readonly PortfolioArchiveJobQueue _queue;
     private readonly PortfolioArchiveJobRegistry _registry;
     private readonly PortfolioArchiveJobProcessor _processor;
@@ -41,16 +36,19 @@ public sealed class PortfolioArchiveJobs :
     public PortfolioArchiveJobs(
         IServiceScopeFactory scopes,
         ILogger<PortfolioArchiveJobs> logger)
-        : this(CreateComponents(scopes, logger))
+        : this(
+            new PortfolioArchiveJobRuntime(
+                scopes,
+                logger))
     {
     }
 
     private PortfolioArchiveJobs(
-        Components components)
+        PortfolioArchiveJobRuntime runtime)
         : this(
-            components.Queue,
-            components.Registry,
-            components.Processor)
+            runtime.Queue,
+            runtime.Registry,
+            runtime.Processor)
     {
     }
 
@@ -93,29 +91,5 @@ public sealed class PortfolioArchiveJobs :
         {
             await _registry.CleanupAllAsync();
         }
-    }
-
-    private static Components CreateComponents(
-        IServiceScopeFactory scopes,
-        ILogger<PortfolioArchiveJobs> logger)
-    {
-        var queue =
-            new PortfolioArchiveJobQueue();
-        var files =
-            new PortfolioArchiveJobFileService(logger);
-        var registry =
-            new PortfolioArchiveJobRegistry(
-                queue,
-                files);
-        var processor =
-            new PortfolioArchiveJobProcessor(
-                queue,
-                scopes,
-                logger);
-
-        return new(
-            queue,
-            registry,
-            processor);
     }
 }
