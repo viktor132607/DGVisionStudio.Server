@@ -299,7 +299,14 @@ public static class ServiceCollectionExtensions
                 serviceProvider.GetRequiredService<ClientGalleryAdminQueryService>(),
                 serviceProvider.GetRequiredService<ClientGalleryAdminCommandService>()));
 
-        services.AddScoped<ClientGalleryUserQueryService>();
+        services.AddScoped<ClientGalleryUserListQueryService>();
+        services.AddScoped<ClientGalleryUserDetailsQueryService>();
+        services.AddScoped<ClientGalleryUserAccessQueryService>();
+        services.AddScoped<ClientGalleryUserQueryService>(serviceProvider =>
+            new ClientGalleryUserQueryService(
+                serviceProvider.GetRequiredService<ClientGalleryUserListQueryService>(),
+                serviceProvider.GetRequiredService<ClientGalleryUserDetailsQueryService>(),
+                serviceProvider.GetRequiredService<ClientGalleryUserAccessQueryService>()));
         services.AddScoped<ClientGalleryUserAlbumCreationService>();
         services.AddScoped<ClientGalleryUserPhotoUploadService>();
         services.AddScoped<ClientGalleryUserCreationService>(serviceProvider =>
