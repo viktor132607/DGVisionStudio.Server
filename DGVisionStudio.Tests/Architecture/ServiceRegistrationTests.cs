@@ -30,7 +30,8 @@ public sealed class ServiceRegistrationTests
             typeof(IServiceCatalogService),
             typeof(IClientPrintRequestEndpointService),
             typeof(AuthSessionService),
-            typeof(PortfolioArchiveJobs)
+            typeof(PortfolioArchiveJobs),
+            typeof(HomeSlideshowImageService)
         };
 
         foreach (var serviceType in facadeTypes)
