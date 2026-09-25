@@ -201,7 +201,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PortfolioAlbumBulkService>();
         services.AddSingleton<PortfolioArchiveJobs>();
         services.AddHostedService(sp => sp.GetRequiredService<PortfolioArchiveJobs>());
-        services.AddScoped<IAdminGalleryAccessEndpointService, AdminGalleryAccessEndpointService>();
+        services.AddScoped<AdminGalleryAccessQueryService>();
+        services.AddScoped<AdminGalleryAccessMutationService>();
+        services.AddScoped<IAdminGalleryAccessEndpointService>(serviceProvider =>
+            new AdminGalleryAccessEndpointService(
+                serviceProvider.GetRequiredService<AdminGalleryAccessQueryService>(),
+                serviceProvider.GetRequiredService<AdminGalleryAccessMutationService>()));
         services.AddScoped<IClientPrintRequestEndpointService, ClientPrintRequestEndpointService>();
         services.AddScoped<ICsrfTokenService, CsrfTokenService>();
         services.AddScoped<IDebugUserService, DebugUserService>();
