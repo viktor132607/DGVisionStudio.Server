@@ -20,12 +20,12 @@ public sealed class AdminPrintRequestCommandRefactorTests
         string status,
         UserClientGalleryStatus expected)
     {
-        await using var fixture = await GallerySqliteFixture.CreateAsync();
+        await using var context = TestDbContextFactory.CreateContext();
         var album = UploadedAlbum("status-map");
-        fixture.Context.PortfolioAlbums.Add(album);
-        await fixture.Context.SaveChangesAsync();
+        context.PortfolioAlbums.Add(album);
+        await context.SaveChangesAsync();
 
-        var service = new AdminPrintRequestStatusService(fixture.Context);
+        var service = new AdminPrintRequestStatusService(context);
 
         var result = await service.UpdateAsync(
             -album.Id,
@@ -39,7 +39,7 @@ public sealed class AdminPrintRequestCommandRefactorTests
     [Fact]
     public async Task SeenService_MarkAllTouchesOnlyEligibleUnseenTargets()
     {
-        await using var fixture = await GallerySqliteFixture.CreateAsync();
+        await using var context = TestDbContextFactory.CreateContext();
         var directUnseen = new PrintRequest
         {
             FullName = "Unseen",
@@ -64,15 +64,15 @@ public sealed class AdminPrintRequestCommandRefactorTests
             IsSeenByAdmin = false
         };
 
-        fixture.Context.AddRange(
+        context.AddRange(
             directUnseen,
             directSeen,
             eligible,
             deleted,
             ordinary);
-        await fixture.Context.SaveChangesAsync();
+        await context.SaveChangesAsync();
 
-        var service = new AdminPrintRequestSeenService(fixture.Context);
+        var service = new AdminPrintRequestSeenService(context);
 
         var result = await service.MarkAllSeenAsync();
 
@@ -88,7 +88,7 @@ public sealed class AdminPrintRequestCommandRefactorTests
     [Fact]
     public async Task DeletionService_PreservesUploadedAlbumSoftDeletePolicy()
     {
-        await using var fixture = await GallerySqliteFixture.CreateAsync();
+        await using var context = TestDbContextFactory.CreateContext();
         var album = UploadedAlbum("delete");
         album.IsPublished = true;
         album.AllowClientAccess = true;
@@ -98,11 +98,11 @@ public sealed class AdminPrintRequestCommandRefactorTests
             IsPublished = true,
             IsCover = true
         });
-        fixture.Context.PortfolioAlbums.Add(album);
-        await fixture.Context.SaveChangesAsync();
+        context.PortfolioAlbums.Add(album);
+        await context.SaveChangesAsync();
 
         var service =
-            new AdminPrintRequestDeletionService(fixture.Context);
+            new AdminPrintRequestDeletionService(context);
 
         var result = await service.DeleteAsync(-album.Id);
 
@@ -125,7 +125,7 @@ public sealed class AdminPrintRequestCommandRefactorTests
     [Fact]
     public async Task FacadeCompatibilityConstructor_PreservesDirectRequestFlow()
     {
-        await using var fixture = await GallerySqliteFixture.CreateAsync();
+        await using var context = TestDbContextFactory.CreateContext();
         var request = new PrintRequest
         {
             FullName = "Client",
@@ -133,11 +133,11 @@ public sealed class AdminPrintRequestCommandRefactorTests
             Status = "New",
             IsSeenByAdmin = false
         };
-        fixture.Context.PrintRequests.Add(request);
-        await fixture.Context.SaveChangesAsync();
+        context.PrintRequests.Add(request);
+        await context.SaveChangesAsync();
 
         var service =
-            new AdminPrintRequestCommandService(fixture.Context);
+            new AdminPrintRequestCommandService(context);
 
         var updated = await service.UpdateStatusAsync(
             request.Id,
@@ -150,7 +150,7 @@ public sealed class AdminPrintRequestCommandRefactorTests
         updated.StatusCode.Should().Be(StatusCodes.Status204NoContent);
         seen.StatusCode.Should().Be(StatusCodes.Status204NoContent);
 
-        var stored = await fixture.Context.PrintRequests.SingleAsync();
+        var stored = await context.PrintRequests.SingleAsync();
         stored.Status.Should().Be("Completed");
         stored.IsSeenByAdmin.Should().BeTrue();
         stored.UpdatedAtUtc.Should().NotBeNull();
