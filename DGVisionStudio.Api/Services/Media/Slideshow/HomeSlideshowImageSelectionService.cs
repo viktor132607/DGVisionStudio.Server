@@ -17,7 +17,7 @@ public sealed class HomeSlideshowImageSelectionService(
                 await catalog.GetAvailableAsync();
 
             return defaultItems
-                .Select(mapper.Map)
+                .Select(image => mapper.Map(image))
                 .ToList();
         }
 
