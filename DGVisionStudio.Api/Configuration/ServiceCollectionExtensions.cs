@@ -149,7 +149,15 @@ public static class ServiceCollectionExtensions
                 serviceProvider.GetRequiredService<ClientGalleryUserEndpointService>(),
                 serviceProvider.GetRequiredService<ClientGalleryPhotoDownloadEndpointService>(),
                 serviceProvider.GetRequiredService<ClientGalleryZipDownloadService>()));
-        services.AddScoped<IAdminCalendarService, AdminCalendarService>();
+        services.AddScoped<AdminCalendarQueryService>();
+        services.AddScoped<AdminCalendarContactRequestQueryService>();
+        services.AddScoped<AdminCalendarEventInputService>();
+        services.AddScoped<AdminCalendarCommandService>();
+        services.AddScoped<IAdminCalendarService>(serviceProvider =>
+            new AdminCalendarService(
+                serviceProvider.GetRequiredService<AdminCalendarQueryService>(),
+                serviceProvider.GetRequiredService<AdminCalendarContactRequestQueryService>(),
+                serviceProvider.GetRequiredService<AdminCalendarCommandService>()));
         services.AddScoped<ContactRequestInputValidator>();
         services.AddScoped<ContactRequestFactory>();
         services.AddScoped<ContactRequestNotificationService>(serviceProvider =>
