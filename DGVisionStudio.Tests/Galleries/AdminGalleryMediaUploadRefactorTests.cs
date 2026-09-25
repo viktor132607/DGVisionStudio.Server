@@ -126,7 +126,7 @@ public sealed class AdminGalleryMediaUploadRefactorTests : IDisposable
         var video = fixture.Context.PortfolioImages
             .Single(x => x.Id == dto.Id);
         video.DisplayOrder.Should().Be(8);
-        video.AltText.Should().Be(" intro");
+        video.AltText.Should().Be("intro");
         video.ImageUrl.Should().StartWith("/uploads/portfolio/videos/")
             .And.EndWith(".mp4");
         audit.Entries.Should().ContainSingle(x =>
