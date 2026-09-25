@@ -221,7 +221,14 @@ public static class ServiceCollectionExtensions
             new AdminGalleryAccessEndpointService(
                 serviceProvider.GetRequiredService<AdminGalleryAccessQueryService>(),
                 serviceProvider.GetRequiredService<AdminGalleryAccessMutationService>()));
-        services.AddScoped<IClientPrintRequestEndpointService, ClientPrintRequestEndpointService>();
+        services.AddScoped<ClientPrintRequestUserContextService>();
+        services.AddScoped<ClientPrintRequestMapper>();
+        services.AddScoped<ClientPrintRequestQueryService>();
+        services.AddScoped<ClientPrintRequestCreationService>();
+        services.AddScoped<IClientPrintRequestEndpointService>(serviceProvider =>
+            new ClientPrintRequestEndpointService(
+                serviceProvider.GetRequiredService<ClientPrintRequestQueryService>(),
+                serviceProvider.GetRequiredService<ClientPrintRequestCreationService>()));
         services.AddScoped<ICsrfTokenService, CsrfTokenService>();
         services.AddScoped<IDebugUserService, DebugUserService>();
         services.AddScoped<ISiteSettingsService, SiteSettingsService>();
