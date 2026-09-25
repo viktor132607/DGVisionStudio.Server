@@ -292,7 +292,16 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<IClientGalleryExpiryService, ClientGalleryExpiryService>();
 
-        services.AddScoped<ClientGalleryMapper>();
+        services.AddScoped<ClientGalleryAccessPolicy>();
+        services.AddScoped<ClientGalleryPhotoMapper>();
+        services.AddScoped<ClientGallerySummaryMapper>();
+        services.AddScoped<ClientGalleryDetailsMapper>();
+        services.AddScoped<ClientGalleryMapper>(serviceProvider =>
+            new ClientGalleryMapper(
+                serviceProvider.GetRequiredService<ClientGalleryAccessPolicy>(),
+                serviceProvider.GetRequiredService<ClientGalleryPhotoMapper>(),
+                serviceProvider.GetRequiredService<ClientGallerySummaryMapper>(),
+                serviceProvider.GetRequiredService<ClientGalleryDetailsMapper>()));
         services.AddScoped<ClientGalleryUploadValidator>();
         services.AddScoped<ClientGalleryNamingService>();
 
