@@ -321,9 +321,18 @@ public static class AppDataSeeder
 
     private static async Task SeedAdmins(UserManager<ApplicationUser> userManager, IConfiguration configuration)
     {
-        var adminPassword = string.IsNullOrWhiteSpace(configuration["Seed:AdminPassword"])
+        var configuredAdminPassword = new[]
+        {
+            configuration["Seed:AdminPassword"],
+            configuration["Admin:Password"],
+            configuration["Admin__Password"],
+            configuration["SEED_ADMIN_PASSWORD"]
+        }
+        .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+
+        var adminPassword = string.IsNullOrWhiteSpace(configuredAdminPassword)
             ? "Admin123!"
-            : configuration["Seed:AdminPassword"]!;
+            : configuredAdminPassword!;
 
         var emails = new[]
         {
@@ -366,7 +375,28 @@ public static class AppDataSeeder
                 {
                     continue;
                 }
+
+                // Keep configured production admin credentials authoritative for seeded admins.
+                // Previously the configured password was only used when creating a missing user,
+                // so an existing database could keep a stale password forever.
+                if (!string.IsNullOrWhiteSpace(configuredAdminPassword))
+                {
+                    var passwordMatches = await userManager.CheckPasswordAsync(user, adminPassword);
+                    if (!passwordMatches)
+                    {
+                        var resetToken = await userManager.GeneratePasswordResetTokenAsync(user);
+                        var resetResult = await userManager.ResetPasswordAsync(user, resetToken, adminPassword);
+                        if (!resetResult.Succeeded)
+                        {
+                            continue;
+                        }
+                    }
+                }
             }
+
+            // A previous failed-login lockout must not make the seeded admin look like bad credentials.
+            await userManager.SetLockoutEndDateAsync(user, null);
+            await userManager.ResetAccessFailedCountAsync(user);
 
             if (!await userManager.IsInRoleAsync(user, "Admin"))
             {
