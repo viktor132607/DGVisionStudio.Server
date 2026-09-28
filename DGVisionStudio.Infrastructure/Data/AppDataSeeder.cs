@@ -328,11 +328,9 @@ public static class AppDataSeeder
             configuration["Admin__Password"],
             configuration["SEED_ADMIN_PASSWORD"]
         }
-        .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+        .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) ?? "Admin123!";
 
-        var adminPassword = string.IsNullOrWhiteSpace(configuredAdminPassword)
-            ? "Admin123!"
-            : configuredAdminPassword!;
+        var adminPassword = configuredAdminPassword;
 
         var emails = new[]
         {
