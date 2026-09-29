@@ -28,19 +28,21 @@ public class ExpiredGalleryCleanupService : BackgroundService
 			try
 			{
                 using var lockScope = _scopeFactory.CreateScope();
-                var distributedLock = lockScope.ServiceProvider.GetRequiredService<DGVisionStudio.Api.Services.PostgresAdvisoryLock>();
-                await using var lease = await distributedLock.TryAcquireAsync(
-                    DistributedCleanupLockKey,
-                    stoppingToken);
+                var distributedLock = lockScope.ServiceProvider.GetService<DGVisionStudio.Api.Services.PostgresAdvisoryLock>();
+                await using IAsyncDisposable? lease = distributedLock is null
+                    ? null
+                    : await distributedLock.TryAcquireAsync(
+                        DistributedCleanupLockKey,
+                        stoppingToken);
 
-                if (lease is not null)
+                if (distributedLock is not null && lease is null)
                 {
-                    await CleanupExpiredDownloadsAsync(stoppingToken);
-                    await CleanupExpiredUserGalleriesAsync(stoppingToken);
+                    _logger.LogDebug("Skipping expired gallery cleanup because another instance holds the distributed lock.");
                 }
                 else
                 {
-                    _logger.LogDebug("Skipping expired gallery cleanup because another instance holds the distributed lock.");
+                    await CleanupExpiredDownloadsAsync(stoppingToken);
+                    await CleanupExpiredUserGalleriesAsync(stoppingToken);
                 }
 			}
 			catch (Exception ex)
