@@ -9,6 +9,7 @@ namespace DGVisionStudio.Infrastructure.Services;
 
 public class ExpiredGalleryCleanupService : BackgroundService
 {
+	private const long DistributedCleanupLockKey = 723480201;
 	private readonly IServiceScopeFactory _scopeFactory;
 	private readonly ILogger<ExpiredGalleryCleanupService> _logger;
 
@@ -26,8 +27,21 @@ public class ExpiredGalleryCleanupService : BackgroundService
 		{
 			try
 			{
-				await CleanupExpiredDownloadsAsync(stoppingToken);
-				await CleanupExpiredUserGalleriesAsync(stoppingToken);
+                using var lockScope = _scopeFactory.CreateScope();
+                var distributedLock = lockScope.ServiceProvider.GetRequiredService<DGVisionStudio.Api.Services.PostgresAdvisoryLock>();
+                await using var lease = await distributedLock.TryAcquireAsync(
+                    DistributedCleanupLockKey,
+                    stoppingToken);
+
+                if (lease is not null)
+                {
+                    await CleanupExpiredDownloadsAsync(stoppingToken);
+                    await CleanupExpiredUserGalleriesAsync(stoppingToken);
+                }
+                else
+                {
+                    _logger.LogDebug("Skipping expired gallery cleanup because another instance holds the distributed lock.");
+                }
 			}
 			catch (Exception ex)
 			{
