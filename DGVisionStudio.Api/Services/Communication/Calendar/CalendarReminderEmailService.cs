@@ -63,12 +63,14 @@ public class CalendarReminderEmailService : BackgroundService
     private async Task SendDueReminders(CancellationToken cancellationToken)
     {
         using var scope = _scopeFactory.CreateScope();
-        var distributedLock = scope.ServiceProvider.GetRequiredService<DGVisionStudio.Api.Services.PostgresAdvisoryLock>();
-        await using var lease = await distributedLock.TryAcquireAsync(
-            DistributedReminderLockKey,
-            cancellationToken);
+        var distributedLock = scope.ServiceProvider.GetService<DGVisionStudio.Api.Services.PostgresAdvisoryLock>();
+        await using IAsyncDisposable? lease = distributedLock is null
+            ? null
+            : await distributedLock.TryAcquireAsync(
+                DistributedReminderLockKey,
+                cancellationToken);
 
-        if (lease is null)
+        if (distributedLock is not null && lease is null)
         {
             _logger.LogDebug("Skipping calendar reminder cycle because another instance holds the distributed lock.");
             return;
