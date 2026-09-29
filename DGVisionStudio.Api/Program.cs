@@ -1,5 +1,6 @@
 using DGVisionStudio.Api.Configuration;
 using DGVisionStudio.Api.Middleware;
+using DGVisionStudio.Api.Infrastructure;
 using DGVisionStudio.Api.Models;
 using DGVisionStudio.Domain.Entities;
 using DGVisionStudio.Infrastructure.Data;
@@ -12,6 +13,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Scalar.AspNetCore;
+using Npgsql;
+using System.Security.Claims;
 using Serilog;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
@@ -31,6 +34,22 @@ Log.Logger = new LoggerConfiguration()
 	.CreateLogger();
 
 builder.Host.UseSerilog();
+
+var sentryDsn =
+    builder.Configuration["Sentry:Dsn"] ??
+    Environment.GetEnvironmentVariable("SENTRY_DSN");
+
+if (!string.IsNullOrWhiteSpace(sentryDsn))
+{
+    builder.WebHost.UseSentry(options =>
+    {
+        options.Dsn = sentryDsn;
+        options.SendDefaultPii = false;
+        options.AttachStacktrace = true;
+        options.TracesSampleRate = 0.05;
+        options.Environment = builder.Environment.EnvironmentName;
+    });
+}
 
 var uploadOptions = builder.Configuration
 	.GetSection(UploadOptions.SectionName)
@@ -90,19 +109,29 @@ builder.Services.Configure<FormOptions>(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
 
 builder.Services.AddDGVisionApplicationServices(storageOptions);
 
 var resolvedDatabaseConnection = DatabaseConnectionStringResolver.Resolve(builder.Configuration, builder.Environment);
 
+builder.Services.AddSingleton(sp => new PostgresAdvisoryLock(
+    resolvedDatabaseConnection.ConnectionString,
+    sp.GetRequiredService<ILogger<PostgresAdvisoryLock>>()));
+
 builder.Services.AddSingleton(sp => new DGVisionStudio.Api.Services.DatabaseBackupService(
     resolvedDatabaseConnection.ConnectionString,
-    sp.GetRequiredService<ILogger<DGVisionStudio.Api.Services.DatabaseBackupService>>()));
+    sp.GetRequiredService<ILogger<DGVisionStudio.Api.Services.DatabaseBackupService>>(),
+    sp.GetRequiredService<PostgresAdvisoryLock>()));
 
-builder.Services.AddDbContext<AppDbContext>(options =>
+builder.Services.AddScoped<DatabaseSessionContextInterceptor>();
+
+builder.Services.AddDbContext<AppDbContext>((serviceProvider, options) =>
 {
-	options.UseNpgsql(resolvedDatabaseConnection.ConnectionString);
-	options.ConfigureWarnings(warnings => warnings.Ignore(RelationalEventId.PendingModelChangesWarning));
+    options.UseNpgsql(resolvedDatabaseConnection.ConnectionString);
+    options.AddInterceptors(serviceProvider.GetRequiredService<DatabaseSessionContextInterceptor>());
+    options.ConfigureWarnings(warnings => warnings.Ignore(RelationalEventId.PendingModelChangesWarning));
 });
 
 builder.Services
@@ -175,39 +204,51 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 builder.Services.AddRateLimiter(options =>
 {
-	options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-	options.OnRejected = async (context, cancellationToken) =>
-	{
-		await ApiErrorResponseWriter.WriteAsync(
-			context.HttpContext,
-			StatusCodes.Status429TooManyRequests,
-			"RateLimitExceeded",
-			"Too many requests.");
-	};
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        await ApiErrorResponseWriter.WriteAsync(
+            context.HttpContext,
+            StatusCodes.Status429TooManyRequests,
+            "RateLimitExceeded",
+            "Too many requests.");
+    };
 
-	options.AddFixedWindowLimiter("auth", limiter =>
-	{
-		limiter.PermitLimit = 5;
-		limiter.Window = TimeSpan.FromMinutes(1);
-		limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-		limiter.QueueLimit = 0;
-	});
+    options.AddPolicy("auth", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: GetRateLimitPartitionKey(context),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                AutoReplenishment = true
+            }));
 
-	options.AddFixedWindowLimiter("contact", limiter =>
-	{
-		limiter.PermitLimit = 3;
-		limiter.Window = TimeSpan.FromMinutes(5);
-		limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-		limiter.QueueLimit = 0;
-	});
+    options.AddPolicy("contact", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: GetRateLimitPartitionKey(context),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 3,
+                Window = TimeSpan.FromMinutes(5),
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                AutoReplenishment = true
+            }));
 
-	options.AddFixedWindowLimiter("upload", limiter =>
-	{
-		limiter.PermitLimit = 200;
-		limiter.Window = TimeSpan.FromMinutes(10);
-		limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-		limiter.QueueLimit = 0;
-	});
+    options.AddPolicy("upload", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: GetRateLimitPartitionKey(context),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 200,
+                Window = TimeSpan.FromMinutes(10),
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                AutoReplenishment = true
+            }));
 });
 
 var allowedOrigins = frontendOptions.GetAllowedOrigins();
@@ -229,9 +270,24 @@ app.Logger.LogInformation(
 	"PostgreSQL connection resolved from configuration key {DatabaseConnectionSource}.",
 	resolvedDatabaseConnection.SourceKey);
 
-app.UseSerilogRequestLogging();
-
 app.UseForwardedHeaders();
+
+app.UseMiddleware<CorrelationIdMiddleware>();
+
+app.UseSerilogRequestLogging(options =>
+{
+    options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+    {
+        diagnosticContext.Set("TraceId", httpContext.TraceIdentifier);
+        diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value);
+
+        string? userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!string.IsNullOrWhiteSpace(userId))
+        {
+            diagnosticContext.Set("UserId", userId);
+        }
+    };
+});
 
 app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();
@@ -256,12 +312,34 @@ Directory.CreateDirectory(Path.Combine(app.Environment.ContentRootPath, "logs"))
 
 if (!app.Environment.IsEnvironment("Testing"))
 {
-	using (var migrationScope = app.Services.CreateScope())
-	{
-		var dbContext = migrationScope.ServiceProvider.GetRequiredService<AppDbContext>();
-		app.Logger.LogInformation("Applying Entity Framework Core database migrations.");
-		await dbContext.Database.MigrateAsync();
-	}
+    using (var migrationScope = app.Services.CreateScope())
+    {
+        var dbContext = migrationScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        app.Logger.LogInformation("Applying Entity Framework Core database migrations.");
+
+        const int maxMigrationAttempts = 5;
+        for (int attempt = 1; attempt <= maxMigrationAttempts; attempt++)
+        {
+            try
+            {
+                await dbContext.Database.MigrateAsync();
+                break;
+            }
+            catch (Exception exception)
+                when (attempt < maxMigrationAttempts &&
+                      (exception is NpgsqlException || exception is TimeoutException))
+            {
+                TimeSpan delay = TimeSpan.FromSeconds(Math.Pow(2, attempt));
+                app.Logger.LogWarning(
+                    exception,
+                    "Transient database startup failure. Migration attempt {Attempt}/{MaxAttempts} will retry in {DelaySeconds} seconds.",
+                    attempt,
+                    maxMigrationAttempts,
+                    delay.TotalSeconds);
+                await Task.Delay(delay);
+            }
+        }
+    }
 
 	await CalendarReminderSchemaSetup.EnsureAsync(app.Services);
 	await PortfolioMediaNameSetup.EnsureAsync(app.Services);
@@ -289,13 +367,19 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowFrontend");
 
+app.UseAuthentication();
+
 app.UseRateLimiter();
 
 app.UseMiddleware<CsrfProtectionMiddleware>();
 
-app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
 app.Run();
+
+static string GetRateLimitPartitionKey(HttpContext context) =>
+    context.User.FindFirstValue(ClaimTypes.NameIdentifier)
+    ?? context.Connection.RemoteIpAddress?.ToString()
+    ?? "unknown";
