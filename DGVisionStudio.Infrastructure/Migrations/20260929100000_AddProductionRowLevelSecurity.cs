@@ -1,9 +1,13 @@
+using DGVisionStudio.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace DGVisionStudio.Infrastructure.Migrations;
 
+[DbContext(typeof(AppDbContext))]
+[Migration("20260929100000_AddProductionRowLevelSecurity")]
 public partial class AddProductionRowLevelSecurity : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)
