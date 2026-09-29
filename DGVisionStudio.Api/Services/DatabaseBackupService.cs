@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
 using Npgsql;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace DGVisionStudio.Api.Services;
 
@@ -10,21 +11,37 @@ public sealed record DatabaseBackupArtifact(string FilePath, string FileName);
 public sealed class DatabaseBackupService
 {
     private const int CopyBufferSize = 128 * 1024;
+    private const long DistributedBackupLockKey = 723480194;
     private static readonly byte[] PgDumpMagic = Encoding.ASCII.GetBytes("PGDMP");
 
     private readonly NpgsqlConnectionStringBuilder connection;
     private readonly ILogger<DatabaseBackupService> logger;
+    private readonly PostgresAdvisoryLock distributedLock;
     private readonly SemaphoreSlim operationLock = new(1, 1);
 
     public DatabaseBackupService(
         string connectionString,
         ILogger<DatabaseBackupService> logger)
+        : this(
+            connectionString,
+            logger,
+            new PostgresAdvisoryLock(
+                connectionString,
+                NullLogger<PostgresAdvisoryLock>.Instance))
+    {
+    }
+
+    public DatabaseBackupService(
+        string connectionString,
+        ILogger<DatabaseBackupService> logger,
+        PostgresAdvisoryLock distributedLock)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
         ArgumentNullException.ThrowIfNull(logger);
 
         connection = new NpgsqlConnectionStringBuilder(connectionString);
         this.logger = logger;
+        this.distributedLock = distributedLock ?? throw new ArgumentNullException(nameof(distributedLock));
 
         if (string.IsNullOrWhiteSpace(connection.Host) ||
             string.IsNullOrWhiteSpace(connection.Database) ||
@@ -43,6 +60,11 @@ public sealed class DatabaseBackupService
 
         try
         {
+            await using IAsyncDisposable distributedLease =
+                await distributedLock.AcquireAsync(
+                    DistributedBackupLockKey,
+                    cancellationToken);
+
             backupPath = CreateTemporaryPath("dump");
 
             await RunPostgresToolAsync(
@@ -103,6 +125,11 @@ public sealed class DatabaseBackupService
 
         try
         {
+            await using IAsyncDisposable distributedLease =
+                await distributedLock.AcquireAsync(
+                    DistributedBackupLockKey,
+                    cancellationToken);
+
             uploadedPath = CreateTemporaryPath("dump");
 
             await using (FileStream destination = new(
