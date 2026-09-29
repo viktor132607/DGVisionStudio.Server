@@ -28,3 +28,5 @@ services:
         value: dgvisionstudio@gmail.com
       - key: Seed__SecondaryAdminEmail
         value: iliev132607@gmail.com
+      - key: SENTRY_DSN
+        sync: false
