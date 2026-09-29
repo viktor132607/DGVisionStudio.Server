@@ -157,9 +157,11 @@ public sealed class AuthServiceTests
         var signIn = new ConfigurableSignInManager(manager);
         var configuration = TestConfiguration.Create(("Frontend:Url", "https://studio.example"));
         var service = new AuthService(
-            new AuthRegistrationService(manager, configuration, NullLogger<AuthRegistrationService>.Instance),
-            new AuthSessionService(manager, signIn, NullLogger<AuthSessionService>.Instance),
-            new AuthPasswordService(manager, new RecordingEmailService(), configuration, NullLogger<AuthPasswordService>.Instance));
+            manager,
+            signIn,
+            new RecordingEmailService(),
+            configuration,
+            NullLogger<AuthService>.Instance);
 
         var result = await service.RegisterAsync(new RegisterRequest(), "trace");
 
