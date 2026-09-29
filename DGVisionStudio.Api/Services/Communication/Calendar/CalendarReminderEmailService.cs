@@ -8,6 +8,7 @@ namespace DGVisionStudio.Infrastructure.Services;
 
 public class CalendarReminderEmailService : BackgroundService
 {
+    private const long DistributedReminderLockKey = 723480202;
     private static readonly TimeSpan CheckInterval = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan TwoHourReminderWindow = TimeSpan.FromHours(2);
     private static readonly TimeSpan TwentyFourHourReminderWindow = TimeSpan.FromHours(24);
@@ -62,6 +63,17 @@ public class CalendarReminderEmailService : BackgroundService
     private async Task SendDueReminders(CancellationToken cancellationToken)
     {
         using var scope = _scopeFactory.CreateScope();
+        var distributedLock = scope.ServiceProvider.GetRequiredService<DGVisionStudio.Api.Services.PostgresAdvisoryLock>();
+        await using var lease = await distributedLock.TryAcquireAsync(
+            DistributedReminderLockKey,
+            cancellationToken);
+
+        if (lease is null)
+        {
+            _logger.LogDebug("Skipping calendar reminder cycle because another instance holds the distributed lock.");
+            return;
+        }
+
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
 
