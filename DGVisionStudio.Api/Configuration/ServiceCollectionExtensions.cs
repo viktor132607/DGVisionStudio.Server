@@ -44,28 +44,7 @@ public static class ServiceCollectionExtensions
                 serviceProvider.GetRequiredService<PrivacyExportQueryService>(),
                 serviceProvider.GetRequiredService<PrivacyAnonymizationService>()));
 
-        services.AddScoped<AuthRegistrationService>();
-        services.AddScoped<AuthLoginService>();
-        services.AddScoped<AuthSessionStateService>();
-        services.AddScoped<AuthSessionService>(serviceProvider =>
-            new AuthSessionService(
-                serviceProvider.GetRequiredService<AuthLoginService>(),
-                serviceProvider.GetRequiredService<AuthSessionStateService>()));
-        services.AddScoped<AuthPasswordResetLinkService>();
-        services.AddScoped<AuthForgotPasswordService>();
-        services.AddScoped<AuthResetPasswordService>();
-        services.AddScoped<AuthChangePasswordService>();
-        services.AddScoped<AuthPasswordService>(serviceProvider =>
-            new AuthPasswordService(
-                serviceProvider.GetRequiredService<AuthForgotPasswordService>(),
-                serviceProvider.GetRequiredService<AuthPasswordResetLinkService>(),
-                serviceProvider.GetRequiredService<AuthResetPasswordService>(),
-                serviceProvider.GetRequiredService<AuthChangePasswordService>()));
-        services.AddScoped<IAuthService>(serviceProvider =>
-            new AuthService(
-                serviceProvider.GetRequiredService<AuthRegistrationService>(),
-                serviceProvider.GetRequiredService<AuthSessionService>(),
-                serviceProvider.GetRequiredService<AuthPasswordService>()));
+        services.AddScoped<IAuthService, AuthService>();
 
         services.AddScoped<PortfolioCategoryAuditService>();
         services.AddScoped<PortfolioCategoryQueryService>();
