@@ -111,9 +111,10 @@ public sealed class ProgramStartupContractTests
 
         source.Should().Contain("AddDGVisionApplicationServices");
         source.Should().Contain("ValidateOnStart");
-        source.Should().Contain("AddFixedWindowLimiter(\"auth\"");
-        source.Should().Contain("AddFixedWindowLimiter(\"contact\"");
-        source.Should().Contain("AddFixedWindowLimiter(\"upload\"");
+        source.Should().Contain("AddPolicy(\"auth\"");
+        source.Should().Contain("AddPolicy(\"contact\"");
+        source.Should().Contain("AddPolicy(\"upload\"");
+        source.Should().Contain("GetRateLimitPartitionKey");
 
         AssertOrdered(
             source,
@@ -121,9 +122,9 @@ public sealed class ProgramStartupContractTests
             "app.UseMiddleware<GlobalExceptionHandlingMiddleware>();",
             "app.UseMiddleware<SecurityHeadersMiddleware>();",
             "app.UseCors(\"AllowFrontend\");",
+            "app.UseAuthentication();",
             "app.UseRateLimiter();",
             "app.UseMiddleware<CsrfProtectionMiddleware>();",
-            "app.UseAuthentication();",
             "app.UseAuthorization();",
             "app.MapControllers();");
     }
