@@ -18,11 +18,18 @@ public sealed class RowLevelSecurityTests
             return;
         }
 
-        string databaseName = "rls_test_" + Guid.NewGuid().ToString("N");
+        string suffix = Guid.NewGuid().ToString("N");
+        string databaseName = "rls_test_" + suffix;
+        string roleName = "rls_app_" + suffix;
+        string rolePassword = "RlsTest_" + suffix + "!";
+
         await using NpgsqlConnection admin = new(adminConnection);
         await admin.OpenAsync();
 
         await ExecuteAsync(admin, $"CREATE DATABASE \"{databaseName}\"");
+        await ExecuteAsync(
+            admin,
+            $"CREATE ROLE \"{roleName}\" LOGIN PASSWORD '{rolePassword}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS");
 
         NpgsqlConnectionStringBuilder builder =
             new(adminConnection)
@@ -96,7 +103,25 @@ public sealed class RowLevelSecurityTests
                 await context.SaveChangesAsync();
             }
 
-            await using NpgsqlConnection db = new(builder.ConnectionString);
+            await using (NpgsqlConnection ownerConnection = new(builder.ConnectionString))
+            {
+                await ownerConnection.OpenAsync();
+                await ExecuteAsync(
+                    ownerConnection,
+                    $"""
+                    GRANT CONNECT ON DATABASE "{databaseName}" TO "{roleName}";
+                    GRANT USAGE ON SCHEMA public TO "{roleName}";
+                    GRANT SELECT ON "PortfolioAlbums", "UserAlbumAccesses" TO "{roleName}";
+                    """);
+            }
+
+            NpgsqlConnectionStringBuilder appBuilder = new(builder.ConnectionString)
+            {
+                Username = roleName,
+                Password = rolePassword
+            };
+
+            await using NpgsqlConnection db = new(appBuilder.ConnectionString);
             await db.OpenAsync();
 
             await SetApplicationContextAsync(db, "user-a", false, false);
@@ -123,6 +148,7 @@ public sealed class RowLevelSecurityTests
         finally
         {
             await ExecuteAsync(admin, $"DROP DATABASE \"{databaseName}\" WITH (FORCE)");
+            await ExecuteAsync(admin, $"DROP ROLE IF EXISTS \"{roleName}\"");
         }
     }
 
