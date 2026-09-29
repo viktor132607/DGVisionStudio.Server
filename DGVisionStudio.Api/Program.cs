@@ -2,6 +2,7 @@ using DGVisionStudio.Api.Configuration;
 using DGVisionStudio.Api.Middleware;
 using DGVisionStudio.Api.Infrastructure;
 using DGVisionStudio.Api.Models;
+using DGVisionStudio.Api.Services;
 using DGVisionStudio.Domain.Entities;
 using DGVisionStudio.Infrastructure.Data;
 using DGVisionStudio.Infrastructure.Services;
