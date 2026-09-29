@@ -125,11 +125,6 @@ public sealed class DatabaseBackupService
 
         try
         {
-            await using IAsyncDisposable distributedLease =
-                await distributedLock.AcquireAsync(
-                    DistributedBackupLockKey,
-                    cancellationToken);
-
             uploadedPath = CreateTemporaryPath("dump");
 
             await using (FileStream destination = new(
@@ -169,13 +164,19 @@ public sealed class DatabaseBackupService
                     ex);
             }
 
-            // Materialize and decompress the complete archive before touching the database.
+            // Materialize and validate the complete archive before touching the database.
             sqlPath = CreateTemporaryPath("sql");
             resetPath = CreateTemporaryPath("sql");
             await RunPostgresToolAsync("pg_restore",
                 ["--clean", "--if-exists", "--no-owner", "--no-privileges", "--file", sqlPath, uploadedPath],
                 "read the complete database archive", cancellationToken);
             await File.WriteAllTextAsync(resetPath, ResetDatabaseSql, cancellationToken);
+
+            await using IAsyncDisposable distributedLease =
+                await distributedLock.AcquireAsync(
+                    DistributedBackupLockKey,
+                    cancellationToken);
+
             NpgsqlConnection.ClearAllPools();
             try
             {
