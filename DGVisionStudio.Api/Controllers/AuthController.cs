@@ -72,11 +72,13 @@ public class AuthController : ControllerBase
     public IActionResult ResetPasswordPage([FromQuery] string email, [FromQuery] string token) =>
         Redirect(_service.GetResetPasswordRedirectUrl(email, token));
 
+    [EnableRateLimiting("auth")]
     [HttpPost("reset-password")]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest model) =>
         this.ToActionResult(await _service.ResetPasswordAsync(model, HttpContext.TraceIdentifier));
 
     [Authorize]
+    [EnableRateLimiting("auth")]
     [HttpPost("change-password")]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest model) =>
         this.ToActionResult(await _service.ChangePasswordAsync(model, CreateAuthContext()));
