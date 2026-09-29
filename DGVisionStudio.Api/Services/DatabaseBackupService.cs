@@ -315,6 +315,10 @@ public sealed class DatabaseBackupService
         startInfo.Environment["PGPORT"] = connection.Port.ToString();
         startInfo.Environment["PGDATABASE"] = connection.Database;
         startInfo.Environment["PGUSER"] = connection.Username;
+        // FORCE ROW LEVEL SECURITY protects application sessions. Maintenance tools
+        // run with the trusted system context so full backups/restores remain unfiltered.
+        startInfo.Environment["PGOPTIONS"] =
+            "-c app.current_is_system=true -c app.current_is_admin=true";
 
         if (!string.IsNullOrEmpty(connection.Password))
         {
