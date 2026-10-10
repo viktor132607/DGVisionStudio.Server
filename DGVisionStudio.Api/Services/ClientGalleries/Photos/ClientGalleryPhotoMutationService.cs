@@ -73,16 +73,42 @@ public sealed class ClientGalleryPhotoMutationService(
 
         var photo = album.Images.FirstOrDefault(x => x.Id == photoId && !x.IsDeleted);
         if (photo == null)
-            return false;
+            return await dbContext.PortfolioImages.IgnoreQueryFilters().AnyAsync(x =>
+                x.Id == photoId && x.PortfolioAlbumId == galleryId && x.IsDeleted);
 
         var now = DateTime.UtcNow;
         var imageUrl = photo.ImageUrl;
         var thumbnailUrl = photo.ThumbnailUrl;
 
+        if (dbContext.Database.IsRelational())
+        {
+            // Some database-side operations report zero affected rows. Verify the
+            // stored state instead of assuming either success or a concurrency failure.
+            var affected = await dbContext.PortfolioImages
+                .Where(x => x.Id == photoId && x.PortfolioAlbumId == galleryId)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(x => x.IsDeleted, true)
+                    .SetProperty(x => x.DeletedAtUtc, (DateTime?)now)
+                    .SetProperty(x => x.IsPublished, false)
+                    .SetProperty(x => x.IsCover, false));
+
+            if (affected == 0 && await dbContext.PortfolioImages.IgnoreQueryFilters()
+                .AsNoTracking().AnyAsync(x => x.Id == photoId &&
+                    (!x.IsDeleted || x.IsPublished || x.IsCover || x.DeletedAtUtc == null)))
+                throw new DbUpdateConcurrencyException("Photo deletion did not change the stored photo.");
+        }
+
         photo.IsDeleted = true;
         photo.DeletedAtUtc = now;
         photo.IsPublished = false;
         photo.IsCover = false;
+
+        if (dbContext.Database.IsRelational())
+        {
+            var entry = dbContext.Entry(photo);
+            entry.OriginalValues.SetValues(entry.CurrentValues);
+            entry.State = EntityState.Unchanged;
+        }
 
         if (string.Equals(album.CoverImageUrl, photo.ThumbnailUrl, StringComparison.OrdinalIgnoreCase) ||
             string.Equals(album.CoverImageUrl, photo.ImageUrl, StringComparison.OrdinalIgnoreCase))

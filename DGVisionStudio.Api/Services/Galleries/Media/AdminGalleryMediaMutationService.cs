@@ -1,5 +1,6 @@
 using DGVisionStudio.Application.DTOs.ClientGalleries;
 using DGVisionStudio.Application.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace DGVisionStudio.Api.Services;
 
@@ -55,7 +56,19 @@ public sealed class AdminGalleryMediaMutationService(
 
         var oldGallery = await clientGalleryService.GetGalleryByIdAsync(galleryId);
         var oldPhoto = oldGallery?.Photos.FirstOrDefault(x => x.Id == photoId);
-        var deleted = await clientGalleryService.DeletePhotoAsync(galleryId, photoId);
+        bool deleted;
+        try
+        {
+            deleted = await clientGalleryService.DeletePhotoAsync(galleryId, photoId);
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            logger.LogWarning(exception,
+                "Photo deletion was not confirmed. GalleryId: {GalleryId}, PhotoId: {PhotoId}, TraceId: {TraceId}",
+                galleryId, photoId, context.TraceId);
+            return new ControllerServiceResult(StatusCodes.Status409Conflict,
+                new { message = "Изтриването не е потвърдено от базата данни. Обнови галерията и опитай отново." });
+        }
         if (!deleted)
             return ControllerServiceResult.NotFound(new { message = "Photo not found." });
 

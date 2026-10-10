@@ -80,9 +80,11 @@ public sealed class ProgramStartupIntegrationTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Admin_DeletePhoto_RemovesPhotoAndUpdatesCover(bool useSqlite)
+    [InlineData(false, null)]
+    [InlineData(true, null)]
+    [InlineData(true, "delete")]
+    [InlineData(true, "block")]
+    public async Task Admin_DeletePhoto_RemovesPhotoAndUpdatesCover(bool useSqlite, string? zeroRowMode)
     {
         var originalValues = TestEnvironment.Keys.ToDictionary(key => key, Environment.GetEnvironmentVariable);
         try
@@ -108,11 +110,34 @@ public sealed class ProgramStartupIntegrationTests
                 await db.SaveChangesAsync();
                 albumId = album.Id;
                 photoId = first.Id;
+                if (zeroRowMode != null)
+                {
+                    var update = zeroRowMode == "delete"
+                        ? "UPDATE PortfolioImages SET IsDeleted = 1, IsPublished = 0, IsCover = 0, DeletedAtUtc = NEW.DeletedAtUtc WHERE Id = OLD.Id;"
+                        : "";
+                    await db.Database.ExecuteSqlRawAsync($"""
+                        CREATE TRIGGER photo_zero_row_update BEFORE UPDATE ON PortfolioImages
+                        WHEN NEW.IsDeleted = 1 AND OLD.IsDeleted = 0
+                        BEGIN
+                            {update}
+                            SELECT RAISE(IGNORE);
+                        END;
+                        """);
+                }
             }
             client.DefaultRequestHeaders.Add("X-Test-Admin", "true");
             client.DefaultRequestHeaders.Add("Cookie", "DGVisionStudio.Csrf=dGVzdA==");
             client.DefaultRequestHeaders.Add("X-CSRF-TOKEN", "dGVzdA==");
             var response = await client.DeleteAsync($"/api/admin/client-galleries/{albumId}/photos/{photoId}");
+            if (zeroRowMode == "block")
+            {
+                response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+                using var unchangedScope = factory.Services.CreateScope();
+                var unchanged = unchangedScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                (await unchanged.PortfolioImages.AnyAsync(x => x.Id == photoId)).Should().BeTrue();
+                (await unchanged.PortfolioAlbums.FindAsync(albumId))!.CoverImageUrl.Should().Be("/first.jpg");
+                return;
+            }
             response.StatusCode.Should().Be(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
             using var verificationScope = factory.Services.CreateScope();
             var stored = verificationScope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -121,6 +146,8 @@ public sealed class ProgramStartupIntegrationTests
             deleted.IsDeleted.Should().BeTrue();
             deleted.DeletedAtUtc.Should().NotBeNull();
             (await stored.PortfolioAlbums.FindAsync(albumId))!.CoverImageUrl.Should().Be("/second.jpg");
+            var repeat = await client.DeleteAsync($"/api/admin/client-galleries/{albumId}/photos/{photoId}");
+            repeat.StatusCode.Should().Be(HttpStatusCode.OK);
         }
         finally
         {
