@@ -99,9 +99,12 @@ builder.Services.AddSingleton(sp => new DGVisionStudio.Api.Services.DatabaseBack
     resolvedDatabaseConnection.ConnectionString,
     sp.GetRequiredService<ILogger<DGVisionStudio.Api.Services.DatabaseBackupService>>()));
 
-builder.Services.AddDbContext<AppDbContext>(options =>
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<RowLevelSecurityConnectionInterceptor>();
+builder.Services.AddDbContext<AppDbContext>((services, options) =>
 {
 	options.UseNpgsql(resolvedDatabaseConnection.ConnectionString);
+	options.AddInterceptors(services.GetRequiredService<RowLevelSecurityConnectionInterceptor>());
 	options.ConfigureWarnings(warnings => warnings.Ignore(RelationalEventId.PendingModelChangesWarning));
 });
 
