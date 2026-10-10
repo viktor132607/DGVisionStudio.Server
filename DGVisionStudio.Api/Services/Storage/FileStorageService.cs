@@ -53,6 +53,7 @@ public class FileStorageService : IFileStorageService
         var fullPath = Path.Combine(targetDirectory, generatedFileName);
 
         using var image = await ImageSharpImage.LoadAsync(fileStream, cancellationToken);
+        image.Mutate(x => x.AutoOrient());
 
         if (maxWidth > 0 && image.Width > maxWidth)
         {

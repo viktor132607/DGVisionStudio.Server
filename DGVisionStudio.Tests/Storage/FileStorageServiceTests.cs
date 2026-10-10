@@ -3,6 +3,9 @@ using DGVisionStudio.Infrastructure.Services;
 using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Metadata.Profiles.Exif;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace DGVisionStudio.Tests.Storage;
 
@@ -40,6 +43,25 @@ public sealed class FileStorageServiceTests : IDisposable
 
         await _service.DeleteFileAsync(relativePath);
         (await _service.FileExistsAsync(relativePath)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task SaveImageAsync_AppliesExifOrientationBeforeResizingAndRemovingMetadata()
+    {
+        using var source = new Image<Rgba32>(80, 40);
+        source.Metadata.ExifProfile = new ExifProfile();
+        source.Metadata.ExifProfile.SetValue(ExifTag.Orientation, (ushort)6);
+        await using var input = new MemoryStream();
+        await source.SaveAsJpegAsync(input);
+        input.Position = 0;
+
+        var relativePath = await _service.SaveImageAsync(input, "portrait.jpg", "uploads/test", maxWidth: 30);
+
+        await using var stored = await _service.OpenReadAsync(relativePath);
+        using var result = await Image.LoadAsync(stored!);
+        result.Width.Should().Be(30);
+        result.Height.Should().Be(60);
+        result.Metadata.ExifProfile.Should().BeNull();
     }
 
     [Fact]
