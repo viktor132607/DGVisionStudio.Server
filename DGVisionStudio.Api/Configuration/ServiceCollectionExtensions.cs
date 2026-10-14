@@ -88,6 +88,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAdminGalleryArchiveService, AdminGalleryArchiveService>();
         services.AddScoped<PortfolioArchiveBuilder>();
         services.AddScoped<PortfolioAlbumBulkService>();
+        services.AddScoped<AdminCommandService>();
         services.AddSingleton<PortfolioArchiveJobs>();
         services.AddHostedService(sp => sp.GetRequiredService<PortfolioArchiveJobs>());
         services.AddScoped<IAdminGalleryAccessEndpointService, AdminGalleryAccessEndpointService>();
