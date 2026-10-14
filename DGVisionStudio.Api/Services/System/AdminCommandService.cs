@@ -131,10 +131,10 @@ public sealed class AdminCommandService(AppDbContext db, IAuditLogService audit)
         var query = db.PortfolioImages.Where(x =>
             x.PortfolioAlbum != null &&
             !x.PortfolioAlbum.IsDeleted &&
-            !EF.Functions.ILike(x.ImageUrl, "%.mp4") &&
-            !EF.Functions.ILike(x.ImageUrl, "%.mov") &&
-            !EF.Functions.ILike(x.ImageUrl, "%.webm") &&
-            !EF.Functions.ILike(x.ImageUrl, "%.m4v") &&
+            !EF.Functions.ILike(x.ImageUrl, "%.mp4%") &&
+            !EF.Functions.ILike(x.ImageUrl, "%.mov%") &&
+            !EF.Functions.ILike(x.ImageUrl, "%.webm%") &&
+            !EF.Functions.ILike(x.ImageUrl, "%.m4v%") &&
             (x.Name != null && x.Name != "" ||
              x.AltText != null && x.AltText != "" ||
              x.Caption != null && x.Caption != ""));
