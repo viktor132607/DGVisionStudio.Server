@@ -25,7 +25,7 @@ public sealed record AlbumPhotoTextCommand(int? AlbumId)
 
         if (args.Length == 2 && args[1].Equals("--all", StringComparison.OrdinalIgnoreCase))
         {
-            command = new AlbumPhotoTextCommand(null);
+            command = new AlbumPhotoTextCommand((int?)null);
             return true;
         }
 
