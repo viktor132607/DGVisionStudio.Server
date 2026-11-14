@@ -188,7 +188,7 @@ public sealed class FileStorageImageCoverageTests
             var service = CreateService(root, useConfiguredWebRoot: true);
             await using var input = await CreatePngStreamAsync(4, 4);
 
-            var action = () => service.SaveImageAsync(input, "photo.gif", "uploads/images");
+            var action = () => service.SaveImageAsync(input, "photo.tiff", "uploads/images");
 
             await action.Should().ThrowAsync<InvalidOperationException>()
                 .WithMessage("Unsupported image format.");

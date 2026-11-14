@@ -66,6 +66,8 @@ public sealed class CloudinaryFileStorageCoverageTests
     [Theory]
     [InlineData("https://res.cloudinary.com/demo/image/upload/v123/folder/photo.jpg", "folder/photo")]
     [InlineData("folder/photo.webp", "folder/photo")]
+    [InlineData("folder/photo.bmp", "folder/photo")]
+    [InlineData("folder/photo.gif", "folder/photo")]
     [InlineData("folder/document.txt", "folder/document.txt")]
     public void ExtractPublicId_StripsCloudinaryUploadPrefixVersionAndKnownExtensions(
         string input,
@@ -100,6 +102,16 @@ public sealed class CloudinaryFileStorageCoverageTests
 
         using var optimizedImage = await Image.LoadAsync(optimizedStream);
         optimizedImage.Width.Should().BeLessThanOrEqualTo(1200);
+    }
+
+    [Theory]
+    [InlineData("bmp")]
+    [InlineData("gif")]
+    public async Task OversizedNewFormats_AreNotSilentlyConverted(string extension)
+    {
+        using var stream = new MemoryStream(new byte[10 * 1024 * 1024 + 1]);
+        var act = () => CreateService().SaveImageAsync(stream, "large." + extension, "uploads/portfolio");
+        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*10 MB*");
     }
 
     private static CloudinaryFileStorageService CreateService() => new(

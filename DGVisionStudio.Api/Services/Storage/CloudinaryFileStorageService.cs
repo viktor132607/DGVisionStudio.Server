@@ -68,8 +68,10 @@ public class CloudinaryFileStorageService : IFileStorageService
 	{
 		var extension = Path.GetExtension(fileName).ToLowerInvariant();
 
-		if (extension is not ".jpg" and not ".jpeg" and not ".png" and not ".webp")
+		if (extension is not ".jpg" and not ".jpeg" and not ".png" and not ".webp" and not ".bmp" and not ".gif")
 			throw new InvalidOperationException("Unsupported image format.");
+
+		var preserveOriginal = extension is ".bmp" or ".gif";
 
 		MemoryStream? bufferedStream = null;
 		MemoryStream? optimizedStream = null;
@@ -92,6 +94,8 @@ public class CloudinaryFileStorageService : IFileStorageService
 
 			if (uploadStream.Length > CloudinaryMaxImageUploadSizeBytes)
 			{
+				if (preserveOriginal)
+					throw new ArgumentException("BMP and GIF files cannot exceed 10 MB; the original format is preserved.");
 				optimizedStream = await OptimizeImageForCloudinaryAsync(
 					uploadStream,
 					maxWidth,
@@ -110,7 +114,7 @@ public class CloudinaryFileStorageService : IFileStorageService
 				Overwrite = false,
 				UseFilename = false,
 				UniqueFilename = true,
-				Transformation = new Transformation()
+				Transformation = preserveOriginal ? null : new Transformation()
 					.Width(maxWidth)
 					.Crop("limit")
 					.Quality(quality)
@@ -348,7 +352,7 @@ public class CloudinaryFileStorageService : IFileStorageService
 
 		return extension.ToLowerInvariant() switch
 		{
-			".jpg" or ".jpeg" or ".png" or ".webp" or ".gif" or ".pdf" => value[..^extension.Length],
+			".jpg" or ".jpeg" or ".png" or ".webp" or ".gif" or ".bmp" or ".pdf" => value[..^extension.Length],
 			_ => value
 		};
 	}

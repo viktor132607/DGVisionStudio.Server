@@ -45,6 +45,10 @@ public class FileStorageService : IFileStorageService
         int quality = 82,
         CancellationToken cancellationToken = default)
     {
+        // Preserve GIF animation and BMP bytes without format conversion or re-encoding.
+        if (Path.GetExtension(fileName).ToLowerInvariant() is ".bmp" or ".gif")
+            return await SaveFileAsync(fileStream, fileName, folderPath, cancellationToken);
+
         var targetDirectory = ResolveDirectoryPath(folderPath);
         Directory.CreateDirectory(targetDirectory);
 

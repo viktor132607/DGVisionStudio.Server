@@ -86,6 +86,8 @@ public sealed class ClientGalleryPhotoDownloadService(
             ".jpg" or ".jpeg" => "image/jpeg",
             ".png" => "image/png",
             ".webp" => "image/webp",
+            ".bmp" => "image/bmp",
+            ".gif" => "image/gif",
             _ => "application/octet-stream"
         };
 }
