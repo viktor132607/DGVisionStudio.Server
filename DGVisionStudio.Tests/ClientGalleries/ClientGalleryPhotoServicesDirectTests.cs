@@ -70,6 +70,29 @@ public sealed class ClientGalleryPhotoDownloadServiceTests
 
 public sealed class ClientGalleryPhotoUploadServiceTests
 {
+    [Theory]
+    [InlineData("")]
+    [InlineData("application/octet-stream")]
+    public async Task UploadPhotoAsync_PersistsNameWithoutFollowupMetadataRequest(string contentType)
+    {
+        await using var fixture = await GallerySqliteFixture.CreateAsync();
+        var album = new PortfolioAlbum { Title = "Album", Slug = "upload-name",
+            PortfolioCategory = new PortfolioCategory { Key = "upload", Name = "Upload", NameEn = "Upload" } };
+        fixture.Context.Add(album);
+        await fixture.Context.SaveChangesAsync();
+        var service = new ClientGalleryPhotoUploadService(fixture.Context,
+            new StubFileStorageService(), new ClientGalleryMapper(), new ClientGalleryUploadValidator(),
+            NullLogger<ClientGalleryPhotoUploadService>.Instance);
+
+        var result = await service.UploadPhotoAsync(album.Id, GalleryTestFiles.Create("portrait.final.png", contentType));
+
+        result.Should().NotBeNull();
+        var stored = await fixture.Context.PortfolioImages.SingleAsync();
+        stored.Name.Should().Be("portrait.final");
+        stored.AltText.Should().BeNull();
+        stored.IsCover.Should().BeTrue();
+    }
+
     [Fact]
     public async Task UploadPhotoAsync_ReturnsNull_WhenGalleryDoesNotExist()
     {

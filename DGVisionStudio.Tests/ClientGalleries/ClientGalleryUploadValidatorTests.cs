@@ -46,6 +46,23 @@ public sealed class ClientGalleryUploadValidatorTests
             .WithMessage("Invalid file MIME type.");
     }
 
+    [Fact]
+    public async Task ValidateUploadedImageAsync_ReadsSignatureAcrossShortStreamReads()
+    {
+        var bytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        var file = new FormFile(new ShortReadStream(bytes), 0, bytes.Length, "file", "photo.png")
+        {
+            Headers = new HeaderDictionary(), ContentType = "image/png"
+        };
+        await new ClientGalleryUploadValidator().ValidateUploadedImageAsync(file);
+    }
+
+    private sealed class ShortReadStream(byte[] bytes) : MemoryStream(bytes)
+    {
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+            base.ReadAsync(buffer[..Math.Min(2, buffer.Length)], cancellationToken);
+    }
+
     private static IFormFile CreateFile(string fileName, string contentType, byte[] bytes)
     {
         var stream = new MemoryStream(bytes);

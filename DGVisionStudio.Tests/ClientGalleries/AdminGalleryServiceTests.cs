@@ -50,6 +50,24 @@ public sealed class AdminGalleryMediaDownloadServiceTests
 
 public sealed class AdminGalleryMediaUploadServiceTests
 {
+    [Theory]
+    [InlineData("")]
+    [InlineData("application/octet-stream")]
+    public async Task UploadPhotoAsync_DoesNotRejectGenericBrowserMimeBeforeSharedValidation(string contentType)
+    {
+        await using var db = TestDbContextFactory.CreateContext();
+        var gallery = new StubClientGalleryService
+        {
+            UploadPhoto = (_, _) => Task.FromResult<ClientPhotoDto?>(new ClientPhotoDto { Id = 7 })
+        };
+        var service = new AdminGalleryMediaUploadService(gallery, new RecordingAuditLogService(),
+            NullLogger<AdminGalleryMediaUploadService>.Instance, db,
+            new TestWebHostEnvironment(), new ClientGalleryMapper());
+        var result = await service.UploadPhotoAsync(1,
+            GalleryTestFiles.Create("photo.png", contentType), Context());
+        result.StatusCode.Should().Be(StatusCodes.Status200OK);
+    }
+
     [Fact]
     public async Task UploadPhotoAsync_ReturnsBadRequest_ForInvalidGallery()
     {

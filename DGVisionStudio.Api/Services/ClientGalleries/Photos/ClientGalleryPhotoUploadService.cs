@@ -51,9 +51,10 @@ public sealed class ClientGalleryPhotoUploadService(
             PortfolioAlbumId = galleryId,
             ImageUrl = savedPath,
             ThumbnailUrl = savedPath,
-            AltText = string.IsNullOrWhiteSpace(originalFileNameWithoutExtension)
+            Name = string.IsNullOrWhiteSpace(originalFileNameWithoutExtension)
                 ? null
-                : originalFileNameWithoutExtension.Trim(),
+                : originalFileNameWithoutExtension.Trim()[..Math.Min(originalFileNameWithoutExtension.Trim().Length, 250)],
+            AltText = null,
             Caption = null,
             DisplayOrder = nextDisplayOrder + 1,
             IsCover = !hasActiveImages,

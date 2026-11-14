@@ -40,7 +40,7 @@ public class ClientGalleryUploadValidator
 
 		await using var stream = file.OpenReadStream();
 		var header = new byte[16];
-		var read = await stream.ReadAsync(header.AsMemory(0, header.Length));
+		var read = await stream.ReadAtLeastAsync(header.AsMemory(), header.Length, throwOnEndOfStream: false);
 
 		if (!HasValidImageSignature(extension, header, read))
 			throw new ArgumentException("Invalid image file signature.");

@@ -29,7 +29,10 @@ public sealed class AdminGalleryMediaUploadService(
             return ControllerServiceResult.BadRequest(new { message = "File is required." });
         if (file.Length > MaxPhotoUploadSizeBytes)
             return ControllerServiceResult.BadRequest(new { message = "Photo is too large. Maximum size is 20MB." });
-        if (!file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+
+        if (!string.IsNullOrWhiteSpace(file.ContentType) &&
+            !file.ContentType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase) &&
+            !file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
             return ControllerServiceResult.BadRequest(new { message = "Only image files are allowed." });
 
         var photo = await clientGalleryService.UploadPhotoAsync(galleryId, file);
